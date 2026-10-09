@@ -15,6 +15,8 @@ from . import operators
 
 
 classes = (
+    # debug
+    operators.MIRRORLINK_OT_Debug,
     # pannels
     ui.MIRRORLINK_PT_MainPanel,
     # operators

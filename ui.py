@@ -12,5 +12,6 @@ class MIRRORLINK_PT_MainPanel(bpy.types.Panel): # dit à Blender "je crée un p
     def draw(self, context): # Blender appelle cette méthode pour dessiner le panneau
         layout = self.layout
 
+        layout.operator("mirrorlink.debug")
         layout.operator("mirrorlink.set_binoms")
         layout.operator("mirrorlink.build_sym_from_semi_mesh")
