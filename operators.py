@@ -87,9 +87,14 @@ class SymetrizePair(BaseOperator):
         functions.symetrize_pair("POSITIVE")
 
 @register_me
-class SymetrizeWholeMesh(BaseOperator):
+class SymetrizeWholeMeshPositive(BaseOperator):
     def run(self, context):
         functions.symetrize("POSITIVE")
+
+@register_me
+class SymetrizeWholeMeshNegative(BaseOperator):
+    def run(self, context):
+        functions.symetrize("NEGATIVE")
 
 
 

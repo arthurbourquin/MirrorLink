@@ -30,9 +30,13 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
         layout.label(text="Mesh Modification")
         row = layout.row(align=True)
-        row.scale_y = 4
-        row.operator("mirrorlink.symetrize_pair", text="●-● Pair")
-        row.operator("mirrorlink.symetrize_whole_mesh", text="SYMETRIZE")
+        left = row.row(align=True)
+        left.scale_y = 4
+        left.operator("mirrorlink.symetrize_pair", text="●-● Pair")
+        right = row.column(align=True)
+        right.scale_y = 2
+        right.operator("mirrorlink.symetrize_whole_mesh_positive", text="SYM from + X")
+        right.operator("mirrorlink.symetrize_whole_mesh_negative", text="SYM from - X")
 
         layout.label(text="Build")
         layout.operator("mirrorlink.analyze_geometry", text="Analyze Geometry")
