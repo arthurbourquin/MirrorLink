@@ -1,17 +1,29 @@
 import bpy
+from itertools import groupby
+from .core import register_me, operators
 
 
-class MIRRORLINK_PT_MainPanel(bpy.types.Panel): # dit à Blender "je crée un pannel" ; MIRRORLINK_PT_ convention
+@register_me
+class MIRRORLINK_PT_main(bpy.types.Panel):
     bl_label = "MirrorLink"
-    bl_idname = "MIRRORLINK_PT_main_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "MirrorLink"
 
-    bl_space_type = 'VIEW_3D'  # où dans Blender
-    bl_region_type = 'UI'      # où dans la fenêtre (side pannel (n))
-    bl_category = "MirrorLink" # nom de l'onglet dans side pannel
-
-    def draw(self, context): # Blender appelle cette méthode pour dessiner le panneau
+    def draw(self, context):
         layout = self.layout
+        ops = [o for o in operators() if o.in_panel]
 
-        layout.operator("mirrorlink.debug")
-        layout.operator("mirrorlink.set_binoms")
-        layout.operator("mirrorlink.build_sym_from_semi_mesh")
+        for group, items in groupby(ops, key=lambda o: o.group):
+            items = list(items)
+
+            if group is None:                    # sans groupe : un bouton par ligne
+                for o in items:
+                    layout.operator(o.bl_idname)
+                continue
+
+            layout.label(text=group)
+            cols = len(items) if len(items) <= 3 else 2    # une ligne si <= 3, sinon grille 2 colonnes
+            grid = layout.grid_flow(row_major=True, columns=cols, align=True)
+            for o in items:
+                grid.operator(o.bl_idname, text=o.button_text or o.bl_label)
