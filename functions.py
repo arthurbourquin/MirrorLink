@@ -328,16 +328,81 @@ def find_and_set_pairs(threshold=1e-9):
     bmesh.update_edit_mesh(mesh)
 
 
+def analyze_attribute(threshold=1e-4):
+    print("=== Analyze Linkage ===")
+    obj, mesh, bm, ml_layer = get_bmesh_stuff()
+    if not obj:
+        print("No object found...")
+        return
 
-def analyze_mesh(threshold=1e-4):
+    bm.verts.ensure_lookup_table()
+
+    vertices = {}
+    for v in bm.verts:
+        id = v[ml_layer]
+        if id < IGNORE:
+            id = "OTHER"
+        if id not in vertices:
+            vertices[id] = []
+        vertices[id].append(v)
+
+    # check pairs
+    pairs = {k: v for k, v in vertices.items() if k >= FIRSTBINOM}
+    not_dual_pairs = []
+    not_matching_pairs = []
+    for id, verts in pairs.items():
+        if len(verts) != 2:
+            not_dual_pairs += verts
+            continue
+        v1, v2 = verts
+        dx = abs(v1.co.x + v2.co.x)
+        dy = abs(v1.co.y - v2.co.y)
+        dz = abs(v1.co.z - v2.co.z)
+        if dx >= threshold or dy >= threshold or dz >= threshold:
+            not_matching_pairs.extend(verts)
+    pairs_ok = len(not_dual_pairs) == 0 and len(not_matching_pairs) == 0
+
+    # check centers
+    centers = vertices.get(CENTER, [])
+    not_at_center = []
+    for v in centers:
+        if abs(v.co.x) > threshold:
+            not_at_center.append(v)
+    centers_ok = len(not_at_center) == 0
+
+    # unset
+    unsets = vertices.get(UNSET, [])
+    nothing_unset = len(unsets) == 0
+
+    # other
+    others = vertices.get("OTHER", [])
+    no_undefined = len(others) == 0
+
+    if all((pairs_ok, centers_ok, nothing_unset, no_undefined)):
+        alert("Mesh is sane!")
+    else:
+        dual = len(not_dual_pairs)
+        match = len(not_matching_pairs)
+        ctr = len(not_at_center)
+        unset = len(unsets)
+        othr = len(others)
+        lines = []
+        lines.append(f"{dual}  verices having not exactely one pair")
+        lines.append(f"{match} pairs not sharing mirror coordinates")
+        lines.append(f"{ctr}   vertices maked center but not at center")
+        lines.append(f"{unset}   vertices unset")
+        lines.append(f"{othr}   vertices undefined")
+        msg = "\n".join(lines)
+        alert(msg)
+        print(msg)
+
+
+
+def analyze_geometry(threshold=1e-4):
     lines = []
 
     def bucketize(values):
-        thresholds = {
-            0.0: 0,
-            threshold: 0,
-            float("inf"): 0,
-        }
+        thresholds = {0.0: 0, threshold: 0, float("inf"): 0,}
         for val in values:
             for t in thresholds:
                 if val <= t:
@@ -358,7 +423,7 @@ def analyze_mesh(threshold=1e-4):
 
     bm.verts.ensure_lookup_table()
     total = len(bm.verts)
-    lines.append(f"{total} vertices\n")
+    lines.append(f"Found {total} vertices\n")
 
     # X distance
     axis_dists = [abs(v.co.x) for v in bm.verts]
@@ -384,9 +449,8 @@ def analyze_mesh(threshold=1e-4):
     lines.append(f"{inf} ({pc(inf)}) vertices considered not to have a match at -x")
     lines.append("\n")
 
-    message = "\n".join(lines)
-    alert(message)
-    print(message)
+    alert(lines)
+    print(lines)
     bmesh.update_edit_mesh(mesh)
 
 

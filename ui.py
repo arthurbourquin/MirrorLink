@@ -1,6 +1,5 @@
 import bpy
-from itertools import groupby
-from .core import register_me, operators
+from .core import register_me
 
 
 @register_me
@@ -12,18 +11,37 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        ops = [o for o in operators() if o.in_panel]
 
-        for group, items in groupby(ops, key=lambda o: o.group):
-            items = list(items)
+        layout.label(text="Selection")
+        layout.operator("mirrorlink.select_center_vertices", text="Select Center Vertices")
+        layout.operator("mirrorlink.select_overlapping_vertices", text="Select Overlapping Vertices")
+        grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
+        grid.operator("mirrorlink.select_marked_pair", text="Select 'Pairs'")
+        grid.operator("mirrorlink.select_marked_center", text="Select 'Center'")
+        grid.operator("mirrorlink.select_marked_unset", text="Select 'Unset'")
+        grid.operator("mirrorlink.select_marked_ignore", text="Select 'Ignore'")
 
-            if group is None:                    # sans groupe : un bouton par ligne
-                for o in items:
-                    layout.operator(o.bl_idname)
-                continue
+        layout.label(text="Set Attribute For Selection")
+        grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
+        grid.operator("mirrorlink.set_id_to_selected_pair", text="Set 'Pair'")
+        grid.operator("mirrorlink.set_selected_to_center", text="Set 'Center'")
+        grid.operator("mirrorlink.set_selected_to_unset", text="Set 'Unset'")
+        grid.operator("mirrorlink.set_selected_to_ignore", text="Set 'Ignore'")
 
-            layout.label(text=group)
-            cols = len(items) if len(items) <= 3 else 2    # une ligne si <= 3, sinon grille 2 colonnes
-            grid = layout.grid_flow(row_major=True, columns=cols, align=True)
-            for o in items:
-                grid.operator(o.bl_idname, text=o.button_text or o.bl_label)
+        layout.label(text="Mesh Modification")
+        row = layout.row(align=True)
+        row.scale_y = 4
+        row.operator("mirrorlink.symetrize_pair", text="●-● Pair")
+        row.operator("mirrorlink.symetrize_whole_mesh", text="SYMETRIZE")
+
+        layout.label(text="Build")
+        layout.operator("mirrorlink.analyze_geometry", text="Analyze Geometry")
+        layout.operator("mirrorlink.analyze_attribute", text="Analyze Linkage")
+        row = layout.row(align=True)
+        row.scale_y = 2
+        row.operator("mirrorlink.find_and_set_pairs", text="Mirror Link Mesh")
+
+
+tolerated_chars = "· • – — ← → ↑ ↓ ○ ● □ ■ △ ◇ ± × ÷ ≠ ≤ ≥ ≈ ° Ø × ✓"
+
+

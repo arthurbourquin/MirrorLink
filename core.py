@@ -38,7 +38,8 @@ def register():
 
 def unregister():
     for c in reversed(_classes):
-        bpy.utils.unregister_class(c)
+        if hasattr(c, "bl_rna") and c.is_registered:
+            bpy.utils.unregister_class(c)
 
 
 def operators():
