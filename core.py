@@ -1,37 +1,52 @@
-"""Tout ce qui évite le boilerplate : dérivation des noms, enregistrement auto, base d'opérateur."""
+"""
+Anything that avoids boilerplate code:
+name derivation, auto-registration, operator base.
+"""
+
 import re
 import bpy
 
-PREFIX = "mirrorlink"   # préfixe des idnames -> "mirrorlink.debug"
+from .utils import ENUM
+
+PREFIX = "mirrorlink"   # idnames prefix -> "mirrorlink.debug"
 
 
-# ----------------------------------------------------------------------
-# NOMS : on n'écrit qu'un nom (PascalCase), le reste en est dérivé
-# ----------------------------------------------------------------------
 
-def to_snake(name):
-    """AnalyzeMesh -> analyze_mesh"""
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+#=========#=========#=========#=========#=========#=========#=========#=========
+# CONVERSION
+#=========#=========#=========#=========#=========#=========#=========#=========
+# Human   "My Stuff"
+# Pascal  "MyStuff"
+# snake   "my_stuff"
 
+def to_snake(pascal_name):
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", pascal_name).lower()
 
 def to_human(snake_name):
-    """analyze_mesh -> Analyze Mesh"""
     return snake_name.replace("_", " ").title()
 
 
-# ----------------------------------------------------------------------
-# ENREGISTREMENT : un décorateur, plus de liste à maintenir
-# ----------------------------------------------------------------------
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# REGISTER
+#=========#=========#=========#=========#=========#=========#=========#=========
 
 _classes = []
+_scene_properties = {}
 
-
-def register_me(cls):
+def register_class(cls):
     _classes.append(cls)
     return cls
 
+def register_scene_property(func):
+    _scene_properties[func.__name__] = func()
+    return func
+
 
 def register():
+    for name, prop in _scene_properties.items():
+        setattr(bpy.types.Scene, name, prop)
+
     for c in _classes:
         bpy.utils.register_class(c)
 
@@ -41,29 +56,34 @@ def unregister():
         if hasattr(c, "bl_rna") and c.is_registered:
             bpy.utils.unregister_class(c)
 
+    for c in reversed(_classes):
+        if hasattr(c, "bl_rna") and c.is_registered:
+            bpy.utils.unregister_class(c)
+
 
 def operators():
-    """Tous les opérateurs enregistrés, dans l'ordre de définition."""
+    """All registered operators, in the order in which they were defined."""
     return [c for c in _classes if issubclass(c, BaseOperator)]
 
 
-# ----------------------------------------------------------------------
-# BASE D'OPÉRATEUR
-# ----------------------------------------------------------------------
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# OERATOR BASE
+#=========#=========#=========#=========#=========#=========#=========#=========
 
 class BaseOperator(bpy.types.Operator):
-    """Les sous-classes n'implémentent que run().
-
-    Options de classe :
-      dialog   = True   -> ouvre une fenêtre pour régler les propriétés avant de lancer
-      in_panel = False  -> pas de bouton automatique dans le panneau
-    bl_idname / bl_label sont dérivés du nom de classe, sauf s'ils sont définis à la main.
+    """
+    Subclasses implement only run().
+    Class options:
+      dialog   = True   -> opens a window to set properties before running
+      in_panel = False  -> no automatic button in the panel
+    bl_idname / bl_label are derived from the class name, unless they are defined manually.
     """
     bl_options = {'REGISTER', 'UNDO'}
     dialog = False
     in_panel = True
-    group = None         # opérateurs consécutifs du même groupe = côte à côte
-    button_text = None   # texte court du bouton (sinon bl_label)
+    group = None         # consecutive operators from the same group = side by side
+    button_text = None   # short button text (otherwise bl_label)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -83,17 +103,3 @@ class BaseOperator(bpy.types.Operator):
 
     def run(self, context):
         raise NotImplementedError
-
-
-# ----------------------------------------------------------------------
-# PROPRIÉTÉS PARTAGÉES
-# ----------------------------------------------------------------------
-
-def precision_prop():
-    return bpy.props.IntProperty(
-        name="Threshold",
-        description="Exposant : seuil = 10 ** valeur",
-        default=-4,
-        min=-20,
-        max=20,
-    )

@@ -1,8 +1,9 @@
 import bpy
-from .core import register_me
+from .core import register_class
 
 
-@register_me
+
+@register_class
 class MIRRORLINK_PT_main(bpy.types.Panel):
     bl_label = "MirrorLink"
     bl_space_type = 'VIEW_3D'
@@ -11,7 +12,9 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-
+        
+        layout.prop(context.scene, "mirrorlink_precision_exponent")
+        
         layout.label(text="Selection")
         layout.operator("mirrorlink.select_center_vertices", text="Select Center Vertices")
         layout.operator("mirrorlink.select_overlapping_vertices", text="Select Overlapping Vertices")
@@ -30,20 +33,23 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
         layout.label(text="Mesh Modification")
         row = layout.row(align=True)
-        left = row.row(align=True)
-        left.scale_y = 4
-        left.operator("mirrorlink.symetrize_pair", text="●-● Pair")
+        left = row.column(align=True)
+        left.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="Pairing Mode")
+        e = left.row(align=True)
+        e.operator("mirrorlink.symetrize_pair", text="Pair 2 vert")
+        e.scale_y = 3
         right = row.column(align=True)
-        right.scale_y = 2
-        right.operator("mirrorlink.symetrize_whole_mesh_positive", text="SYM from + X")
-        right.operator("mirrorlink.symetrize_whole_mesh_negative", text="SYM from - X")
+        right.prop(context.scene, "mirrorlink_pair_mesh", text="Pairing Mode",)
+        e = right.row(align=True)
+        e.operator("mirrorlink.symetrize_whole_mesh", text="Symetrize Mesh")
+        e.scale_y = 3
 
         layout.label(text="Build")
         layout.operator("mirrorlink.analyze_geometry", text="Analyze Geometry")
         layout.operator("mirrorlink.analyze_attribute", text="Analyze Linkage")
         row = layout.row(align=True)
         row.scale_y = 2
-        row.operator("mirrorlink.find_and_set_pairs", text="Mirror Link Mesh")
+        row.operator("mirrorlink.set_up_mesh_attribute", text="=> Set Up Mesh! =>")
 
 
 tolerated_chars = "· • – — ← → ↑ ↓ ○ ● □ ■ △ ◇ ± × ÷ ≠ ≤ ≥ ≈ ° Ø × ✓"

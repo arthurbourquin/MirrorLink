@@ -8,6 +8,6 @@ bl_info = {
     "category": "Mesh",
 }
 
-# Ces imports suffisent à enregistrer les classes (via @register_me)
-from . import operators, ui  # noqa: F401
-from .core import register, unregister  # noqa: F401
+from . import scene_properties
+from . import operators, ui
+from .core import register, unregister

@@ -1,79 +1,75 @@
+import bpy
+
 from . import functions
-from .core import BaseOperator, register_me, precision_prop
+from .core import BaseOperator, register_class
+from.utils import ENUM
 
-ATTNAME = 'pair-id'
-FIRSTBINOM = 1
-CENTER     = 0
-UNSET      = -1
-IGNORE     = -2
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION (WITHOUT BINOM ID ATTRIBUTE)
+# SELECTION (WITHOUT BINOM ID ENUM)
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_me
+@register_class
 class SelectCenterVertices(BaseOperator):
-    dialog = True
-    precision: precision_prop()
     def run(self, context):
-        functions.select_center_vertices(10 ** self.precision)
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.select_center_vertices(threshold)
 
-@register_me
+@register_class
 class SelectOverlappingVertices(BaseOperator):
-    dialog = True
-    precision: precision_prop()
     def run(self, context):
-        functions.select_overlapping_vertices(10 ** self.precision)
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.select_overlapping_vertices(threshold)
 
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION BY ATTRIBUTE VALUE
+# SELECTION BY ENUM VALUE
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_me
+@register_class
 class SelectMarkedPair(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(FIRSTBINOM)
+        functions.select_by_attribute_value(ENUM.FIRSTPAIR)
 
-@register_me
+@register_class
 class SelectMarkedCenter(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(CENTER)
+        functions.select_by_attribute_value(ENUM.CENTER)
 
-@register_me
+@register_class
 class SelectMarkedUnset(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(UNSET)
+        functions.select_by_attribute_value(ENUM.UNSET)
 
-@register_me
+@register_class
 class SelectMarkedIgnore(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(IGNORE)
+        functions.select_by_attribute_value(ENUM.IGNORE)
 
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SET ATTRIBUTE
+# SET ENUM
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_me
+@register_class
 class SetIdToSelectedPair(BaseOperator):
     def run(self, context):
         functions.set_id_to_selected_pair()
-@register_me
+@register_class
 class SetSelectedToCenter(BaseOperator):
     def run(self, context):
-        functions.set_selected(CENTER)
-@register_me
+        functions.set_selected(ENUM.CENTER)
+@register_class
 class SetSelectedToUnset(BaseOperator):
     def run(self, context):
-        functions.set_selected(UNSET)
-@register_me
+        functions.set_selected(ENUM.UNSET)
+@register_class
 class SetSelectedToIgnore(BaseOperator):
     def run(self, context):
-        functions.set_selected(IGNORE)
+        functions.set_selected(ENUM.IGNORE)
 
 
 
@@ -81,20 +77,19 @@ class SetSelectedToIgnore(BaseOperator):
 # MESH MODIFICATION
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_me
+@register_class
 class SymetrizePair(BaseOperator):
     def run(self, context):
-        functions.symetrize_pair("POSITIVE")
+        mesh_mode = int(context.scene.mirrorlink_pair_2_verts_mode)
+        functions.symetrize_pair(mesh_mode)
 
-@register_me
-class SymetrizeWholeMeshPositive(BaseOperator):
-    def run(self, context):
-        functions.symetrize("POSITIVE")
 
-@register_me
-class SymetrizeWholeMeshNegative(BaseOperator):
+@register_class
+class SymetrizeWholeMesh(BaseOperator):
     def run(self, context):
-        functions.symetrize("NEGATIVE")
+        mesh_mode = int(context.scene.mirrorlink_pair_mesh)
+        functions.symetrize(mesh_mode)
+
 
 
 
@@ -102,24 +97,40 @@ class SymetrizeWholeMeshNegative(BaseOperator):
 # WALKS
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_me
+@register_class
 class AnalyzeGeometry(BaseOperator):
-    precision: precision_prop()
+    bl_description =  "Analysis of the mesh GEOMETRY using\n"
+    bl_description += "only the vertex coordinates,\n"
+    bl_description += "- No attribute needed\n"
+    bl_description += "- No attribute reading)\n"
+    bl_description += "- No modifications"
     def run(self, context):
-        functions.analyze_geometry(10 ** self.precision)
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.analyze_geometry(threshold)
 
-@register_me
+@register_class
 class AnalyzeAttribute(BaseOperator):
-    precision: precision_prop()
+    bl_description =  "Analysis of the mesh ENUM:\n"
+    bl_description += "'Pair', 'Center', 'Unset', 'Ignore\n"
+    bl_description += "- No modifications"
     def run(self, context):
-        functions.analyze_attribute(10 ** self.precision)
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.analyze_attribute(threshold)
 
-@register_me
-class FindAndSetPairs(BaseOperator):
+@register_class
+class SetUpMeshAttribute(BaseOperator):
+    bl_description =  "Walk the whole mesh to find 'Pairs' and 'Center'\n"
+    bl_description += "- 'Unset', 'Pair' and 'Center' vertices will be reset\n"
+    bl_description += "- 'Unset', 'Pair' and 'Center' can be set as 'Ignore'\n"
+    bl_description += "- 'Ignore' vertices will be untouched"
     def run(self, context):
-        functions.find_and_set_pairs()
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.set_up_mesh_attribute(threshold)
 
-@register_me
+@register_class
 class BuildSymFromSemiMesh(BaseOperator):
+    bl_description =  "Build a proper symetric mesh\n"
+    bl_description =  "Same as applying a Mirror Modifier but\n"
+    bl_description =  "all 'Pair' and 'Center' correctly assigned"
     def run(self, context):
         functions.build_sym_from_semi_mesh()
