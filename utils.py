@@ -38,9 +38,9 @@ def alert(message, title="Tohm Mirror Link", icon='INFO'):
 def get_bmesh_stuff():
     obj = bpy.context.active_object
     if not obj or obj.type != 'MESH':
-        return (None, None, None, None)
-    if obj.mode != 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+        return (None, None, None, None, None)
+    objmode = obj.mode
+    bpy.ops.object.mode_set(mode='EDIT')
     mesh = obj.data
     bm = bmesh.from_edit_mesh(mesh)
     ml_layer = bm.verts.layers.int.get(ATTNAME)
@@ -48,7 +48,7 @@ def get_bmesh_stuff():
         ml_layer = bm.verts.layers.int.new(ATTNAME)
         for v in bm.verts:
             v[ml_layer] = -1
-    return (obj, mesh, bm, ml_layer)
+    return (obj, mesh, bm, ml_layer, objmode)
 
 
 

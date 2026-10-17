@@ -32,16 +32,17 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
         grid.operator("mirrorlink.set_selected_to_ignore", text="Set 'Ignore'")
 
         layout.label(text="Mesh Modification")
+        layout.operator("mirrorlink.set_centers_at_zero", text="Set 'Center' at x=0")
         row = layout.row(align=True)
         left = row.column(align=True)
-        left.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="Pairing Mode")
+        left.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="")
         e = left.row(align=True)
-        e.operator("mirrorlink.symetrize_pair", text="Pair 2 vert")
+        e.operator("mirrorlink.symetrize_pair", text="Pair")
         e.scale_y = 3
         right = row.column(align=True)
-        right.prop(context.scene, "mirrorlink_pair_mesh", text="Pairing Mode",)
+        right.prop(context.scene, "mirrorlink_pair_mesh", text="",)
         e = right.row(align=True)
-        e.operator("mirrorlink.symetrize_whole_mesh", text="Symetrize Mesh")
+        e.operator("mirrorlink.symetrize_whole_mesh", text="Symetrize")
         e.scale_y = 3
 
         layout.label(text="Build")

@@ -78,7 +78,18 @@ class SetSelectedToIgnore(BaseOperator):
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 @register_class
+class SetCentersAtZero(BaseOperator):
+    bl_description = "Set 'Center' vertices à x = 0"
+    def run(self, context):
+        functions.set_centers_at_zero()
+
+
+@register_class
 class SymetrizePair(BaseOperator):
+    bl_description = "Set selected to 'Pair'\n"
+    bl_description += "Must have exactely 2 selected vertices\n"
+    bl_description += "- Vertices will have the same unique 'Pair' ID\n"
+    bl_description += "- Vertices will be moved to be mirror of each other"
     def run(self, context):
         mesh_mode = int(context.scene.mirrorlink_pair_2_verts_mode)
         functions.symetrize_pair(mesh_mode)
@@ -86,6 +97,10 @@ class SymetrizePair(BaseOperator):
 
 @register_class
 class SymetrizeWholeMesh(BaseOperator):
+    bl_description = "Symetrize * the whole mesh *\n"
+    bl_description += "Walk the mesh and\n"
+    bl_description += "- for each 'Pair' symetrize both vertices\n"
+    bl_description += "- leave 'Center', 'Unset' and 'Ignore' vertices untouched"
     def run(self, context):
         mesh_mode = int(context.scene.mirrorlink_pair_mesh)
         functions.symetrize(mesh_mode)

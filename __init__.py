@@ -2,7 +2,7 @@ bl_info = {
     "name": "MirrorLink",
     "author": "Tohm",
     "version": (0, 1, 0),
-    "blender": (4, 2, 0),
+    "blender": (4, 2, 23),
     "location": "View3D > Sidebar > MirrorLink",
     "description": "Tool for managing mesh symmetry",
     "category": "Mesh",

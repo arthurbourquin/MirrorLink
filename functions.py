@@ -46,44 +46,12 @@ def nearest_mirror(bm, tree, v):
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# FUNCTIONS
-#=========#=========#=========#=========#=========#=========#=========#=========
-
-#-------------------------------------------------------------------------------
-# PRINT / CHECK / LOG
-
-def check_pairs(obj, mesh, bm, ml_layer, merge_threshold=1e-4):
-    print("=== check pair BEGIN ===")
-
-    print("count ids")
-    bids = dict() # {bid: count}
-    for v in bm.verts:
-        bid = v[ml_layer]
-        if not bid in bids:
-            bids[bid] = 0
-        bids[bid] += 1
-
-    print("arrange ids by count")
-    bids_trans = {1: [], 2: [], 3: []} # {count: bids[]}
-    for bid, count in bids.items():
-        count = 3 if count >= 3 else count
-        bids_trans[count].append(bid)
-    print(f"single pairs: {len(bids_trans[1])}")
-    print(f"dual pairs: {len(bids_trans[2])}")
-    print(f"more than 3: {len(bids_trans[3])}")
-
-    print("=== check pair END ===")
-
-
-
-
-#=========#=========#=========#=========#=========#=========#=========#=========
 # SELECTION (WITHOUT BINOM ID ENUM)
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 def select_center_vertices(threshold):
     print("Select Center Vertices")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     count = 0
     for v in bm.verts:
@@ -97,7 +65,7 @@ def select_center_vertices(threshold):
 
 def select_overlapping_vertices(threshold):
     print("Select Overlapping Vertices")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     refresh_indices(bm)
     tree = build_tree(bm)
@@ -121,7 +89,7 @@ def select_overlapping_vertices(threshold):
 
 def select_pairs():
     print("Select Pairs")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     count = 0
     for v in bm.verts:
@@ -135,7 +103,7 @@ def select_pairs():
 
 def select_by_attribute_value(attribute_value):
     print(f"Select by attribute {attribute_value}")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     count = 0
     for v in bm.verts:
@@ -155,14 +123,14 @@ def select_by_attribute_value(attribute_value):
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 def set_selected(attribute_value):
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     for v in bm.verts:
         if v.select:
             v[ml_layer] = attribute_value
 
 def set_id_to_selected_pair():
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     select = [v for v in bm.verts if v.select]
     if len(select) != 2:
@@ -179,6 +147,23 @@ def set_id_to_selected_pair():
 #=========#=========#=========#=========#=========#=========#=========#=========
 # MESH MODIFICATION
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+def set_centers_at_zero():
+    lines =[]
+    lines.append("=== set 'Center' vertices at x=0 ")
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+    if not ml_layer: return
+    modifs = 0
+    for v in bm.verts:
+        if v[ml_layer] == ENUM.CENTER:
+            if v.co.x != 0:
+                v.co.x = 0
+                modifs += 1
+    lines.append(f"{modifs} modifications made")
+    utils.alert(lines)
+    print("\n".join(lines))
+    bmesh.update_edit_mesh(mesh)
+    return
 
 def symetrize_coordinates(co1, co2, mode):
     # if active
@@ -204,7 +189,7 @@ def symetrize_coordinates(co1, co2, mode):
 
 def symetrize_pair(mode=ENUM.ACTIVE):
     msg = f"=== symetrize pair "
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     selection = [v for v in bm.verts if v.select]
     if len(selection) != 2:
@@ -220,12 +205,14 @@ def symetrize_pair(mode=ENUM.ACTIVE):
 
     msg += f"id {active[ml_layer]} ==="
     print(msg)
+
     bmesh.update_edit_mesh(mesh)
+    bpy.ops.object.mode_set(mode=objmode)
+
 
 def symetrize(mode=ENUM.XNEGATIVE):
-    logs = []
-    logs.append("=== Symetrize mesh ")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    print("=== Symetrize mesh ")
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
 
     groups = {}
@@ -238,9 +225,9 @@ def symetrize(mode=ENUM.XNEGATIVE):
     broken = [g for g in groups.values() if len(g) != 2]
     not_binom = sum(1 for v in bm.verts if v[ml_layer] < ENUM.FIRSTPAIR)
 
-    logs.append(f"{not_binom} vertices not in a pair (ignore, center or unset)")
-    logs.append(f"{len(pairs)} correctly paired")
-    logs.append(f"{len(broken)} binom ids with a wrong vertex count (skipped)")
+    print(f"{not_binom} vertices not in a pair (ignore, center or unset)")
+    print(f"{len(pairs)} correctly paired")
+    print(f"{len(broken)} binom ids with a wrong vertex count (skipped)")
 
     modifications = 0
     for v1, v2 in pairs:
@@ -250,12 +237,10 @@ def symetrize(mode=ENUM.XNEGATIVE):
         v1.co = co1
         v2.co = co2
 
-    logs.append(f"{modifications} modifications made")
-
-    utils.alert(logs)
-    print("\n".join(logs))
+    print(f"{modifications} modifications made")
 
     bmesh.update_edit_mesh(mesh)
+    bpy.ops.object.mode_set(mode=objmode)
 
 
 
@@ -318,7 +303,7 @@ def analyze_attribute(threshold=1e-4):
     logs = []
     logs.append("=== Analyze Linkage ===")
 
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not obj:
         utils.alert(logs)
         print("\n".join(logs))
@@ -393,7 +378,7 @@ def analyze_geometry(threshold=1e-4):
     logs = []
     logs.append("\n=== Analyze Mesh ===")
 
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not obj:
         utils.alert(logs)
         print("\n".join(logs))
@@ -464,14 +449,13 @@ def set_up_mesh_attribute(threshold=1e-9):
     logs = []
     logs.append("=== set up mesh attribute ===")
 
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not obj:
         print("No object found...")
         return
 
     refresh_indices(bm)
     tree = build_tree(bm)
-
 
     # Ignore (alread Ignore and overlapping)
     overlap_bucket = bucketize_for_overlapping(bm, threshold)
@@ -527,7 +511,6 @@ def set_up_mesh_attribute(threshold=1e-9):
         if v[ml_layer] == FORCEIGNORE:
             v[ml_layer] = IGNORE
 
-
     if overlap:
         for v in bm.verts:
             v.select_set(v in overlap)
@@ -548,7 +531,7 @@ def build_sym_from_semi_mesh(merge_threshold=1e-4):
     print("=== build sym from semi mesh BEGIN ===")
 
     print("get bmesh stuff")
-    obj, mesh, bm, ml_layer = utils.get_bmesh_stuff()
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
 
     print("bmesh ops duplicate")
@@ -584,7 +567,6 @@ def build_sym_from_semi_mesh(merge_threshold=1e-4):
     bmesh.update_edit_mesh(mesh)
 
     print("check pairs")
-    check_pairs(obj, mesh, bm, ml_layer, merge_threshold)
 
     print("=== build sym from semi mesh END ===")
 
