@@ -11,14 +11,11 @@ class ENUM(IntEnum):
     CENTER = 0
     UNSET = -1
     IGNORE = -2
-    USERIGNORE = -3
-    FORCEIGNORE = -4
     # modes
     XPOSITIVE = -10
     XNEGATIVE = -11
     AVERAGE = -20
     ACTIVE = -21
-
 
 
 def alert(message, title="Tohm Mirror Link", icon='INFO'):
@@ -36,13 +33,16 @@ def alert(message, title="Tohm Mirror Link", icon='INFO'):
 
 
 def get_bmesh_stuff():
+    # get active object
     obj = bpy.context.active_object
     if not obj or obj.type != 'MESH':
         return (None, None, None, None, None)
+    # save current mode and force Edit Mode
     objmode = obj.mode
     bpy.ops.object.mode_set(mode='EDIT')
     mesh = obj.data
     bm = bmesh.from_edit_mesh(mesh)
+    # get or create attribute
     ml_layer = bm.verts.layers.int.get(ATTNAME)
     if ml_layer is None:
         ml_layer = bm.verts.layers.int.new(ATTNAME)

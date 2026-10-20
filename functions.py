@@ -7,10 +7,7 @@ from mathutils.kdtree import KDTree
 from . import utils
 from .utils import ENUM
 
-FIRSTBINOM = 1
-CENTER     = 0
-UNSET      = -1
-IGNORE     = -2
+
 
 #=========#=========#=========#=========#=========#=========#=========#=========
 # UTILITY
@@ -21,7 +18,6 @@ def refresh_indices(bm):
         seq.index_update()
         seq.ensure_lookup_table()
 
-
 def build_tree(bm):
     bm.verts.ensure_lookup_table()
     tree = KDTree(len(bm.verts))
@@ -30,38 +26,24 @@ def build_tree(bm):
     tree.balance()
     return tree
 
-
 def nearest_mirror(bm, tree, v):
     """Retourne (vertex_miroir, dist_3d, (dx, dy, dz)) pour le vertex v."""
     mirrored = Vector((-v.co.x, v.co.y, v.co.z))
     co, idx, gap = tree.find(mirrored)
     other = bm.verts[idx]
 
-    # Écart par axe : 0 partout si le miroir est parfait
-    dx = v.co.x + other.co.x     # v.x vs -other.x
+    dx = v.co.x + other.co.x
     dy = v.co.y - other.co.y
     dz = v.co.z - other.co.z
     return other, gap, (dx, dy, dz)
 
+def get_available_pair_id(bm, ml_layer):
+    return max([v[ml_layer] for v in bm.verts]) + 1
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION (WITHOUT BINOM ID ENUM)
+# SELECTION (GEOMETRY BASED)
 #=========#=========#=========#=========#=========#=========#=========#=========
-
-def select_center_vertices(threshold):
-    print("Select Center Vertices")
-    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
-    if not ml_layer: return
-    count = 0
-    for v in bm.verts:
-        if abs(v.co.x) < threshold:
-            v.select_set(True)
-            count += 1
-        else:
-            v.select_set(False)
-    print(f"{count} vertices selected")
-    bmesh.update_edit_mesh(mesh)
 
 def select_overlapping_vertices(threshold):
     print("Select Overlapping Vertices")
@@ -81,10 +63,24 @@ def select_overlapping_vertices(threshold):
     print(f"{count} vertices selected")
     bmesh.update_edit_mesh(mesh)
 
+def select_center_vertices(threshold):
+    print("Select Center Vertices")
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+    if not ml_layer: return
+    count = 0
+    for v in bm.verts:
+        if abs(v.co.x) < threshold:
+            v.select_set(True)
+            count += 1
+        else:
+            v.select_set(False)
+    print(f"{count} vertices selected")
+    bmesh.update_edit_mesh(mesh)
+
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION BY ENUM VALUE
+# SELECTION (ATTRIBUTE BASED)
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 def select_pairs():
@@ -119,7 +115,7 @@ def select_by_attribute_value(attribute_value):
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SET ENUM
+# SET ATTRIBUTE
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 def set_selected(attribute_value):
@@ -150,7 +146,7 @@ def set_id_to_selected_pair():
 
 def set_centers_at_zero():
     lines =[]
-    lines.append("=== set 'Center' vertices at x=0 ")
+    lines.append("=== set 'Center' vertices at x = 0 ")
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     modifs = 0
@@ -165,10 +161,7 @@ def set_centers_at_zero():
     bmesh.update_edit_mesh(mesh)
     return
 
-def symetrize_coordinates(co1, co2, mode):
-    # if active
-    # - co1 is active vertex coordinate
-    # - co2 id selected vertex coordinate
+def symetrize_coordinates(co1, co2, mode): # if active: co1 is active
     if mode == ENUM.AVERAGE:
         co = (utils.mirror(co1) + co2) / 2
         co1 = utils.mirror(co)
@@ -188,7 +181,7 @@ def symetrize_coordinates(co1, co2, mode):
     return co1, co2
 
 def symetrize_pair(mode=ENUM.ACTIVE):
-    msg = f"=== symetrize pair "
+    msg = f"=== symetrize pair ==="
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
     selection = [v for v in bm.verts if v.select]
@@ -203,7 +196,17 @@ def symetrize_pair(mode=ENUM.ACTIVE):
 
     active.co, selected.co = symetrize_coordinates(active.co, selected.co, mode)
 
-    msg += f"id {active[ml_layer]} ==="
+    if active[ml_layer] >= ENUM.FIRSTPAIR:
+        pair_id = active[ml_layer]
+    elif selected[ml_layer] >= ENUM.FIRSTPAIR:
+        pair_id = selected[ml_layer]
+    else:
+        pair_id = get_available_pair_id(bm, ml_layer)
+
+    active[ml_layer]   = pair_id
+    selected[ml_layer] = pair_id
+
+    msg += f"id {pair_id}"
     print(msg)
 
     bmesh.update_edit_mesh(mesh)
@@ -316,14 +319,14 @@ def analyze_attribute(threshold=1e-4):
     vertices = {}
     for v in bm.verts:
         id = v[ml_layer]
-        if id < IGNORE:
+        if id < ENUM.IGNORE:
             id = "OTHER"
         if id not in vertices:
             vertices[id] = []
         vertices[id].append(v)
 
     # 'Center'
-    centers = vertices.get(CENTER, [])
+    centers = vertices.get(ENUM.CENTER, [])
     mislocated_centers = []
     for v in centers:
         if abs(v.co.x) > threshold:
@@ -345,10 +348,10 @@ def analyze_attribute(threshold=1e-4):
             mislocated_pairs.extend(verts)
 
     # 'Unset'
-    unsets = vertices.get(UNSET, [])
+    unsets = vertices.get(ENUM.UNSET, [])
 
     # 'Ignore'
-    ignores = vertices.get(IGNORE, [])
+    ignores = vertices.get(ENUM.IGNORE, [])
 
     # other
     others = vertices.get("OTHER", [])
@@ -505,42 +508,38 @@ def set_up_mesh_attribute(threshold=1e-9):
     refresh_indices(bm)
     tree = build_tree(bm)
 
-    # Ignore (alread Ignore and overlapping)
+    # Overlapping
     overlap_bucket = bucketize_for_overlapping(bm, threshold)
     overlap = overlap_bucket[0] | overlap_bucket[threshold]
     for v in overlap:
-        v[ml_layer] = IGNORE
+        v[ml_layer] = ENUM.IGNORE
 
-    # Get working vertices
-    verts = [v for v in bm.verts if v[ml_layer] != IGNORE]
+    # reset all to 'Unset' except 'Ignore'
+    verts = [v for v in bm.verts if v[ml_layer] != ENUM.IGNORE]
     for v in verts:
-        v[ml_layer] = UNSET
+        v[ml_layer] = ENUM.UNSET
 
-    # Center
+    # set 'Center' (takes over 'Pair' if ambiguity)
     center_bucket = bucketize_for_center(bm, threshold)
     centers = center_bucket[0] | center_bucket[threshold]
     for v in centers:
-        v[ml_layer] = CENTER
+        if v[ml_layer] == ENUM.UNSET:
+            v[ml_layer] = ENUM.CENTER
 
-    # Pairs 
-    verts = [v for v in verts if v[ml_layer] == UNSET]
+    # set 'Pair'
+    verts = [v for v in verts if v[ml_layer] == ENUM.UNSET]
     # takes the first mirror verex, but should not be more:
     # we ignored overlapping vertices
     refresh_indices(bm)
     tree = build_tree(bm)
-    pair_id = 1 # start at 1 (0 is CENTER)
-    FORCEIGNORE = -3
+    pair_id = ENUM.FIRSTPAIR
     for v in verts:
-        mv, gap, _yxz = nearest_mirror(bm, tree, v)        
-        if gap > threshold: # no pair found
-            v[ml_layer] = FORCEIGNORE
-        else: # pair found
-            if mv[ml_layer] == UNSET: # pair unset
-                v[ml_layer] = mv[ml_layer] = pair_id # set pair id
+        if v[ml_layer] == ENUM.UNSET:
+            other, gap, _xyz = nearest_mirror(bm, tree, v)
+            if gap <= threshold:
+                v[ml_layer]     = pair_id
+                other[ml_layer] = pair_id
                 pair_id += 1
-            else: # pair set: sould have mark current vertex
-                if v[ml_layer] != mv[ml_layer]:
-                    print("problème problème...")
 
     # Logs
     id_cnt = pair_id - 1
@@ -548,16 +547,11 @@ def set_up_mesh_attribute(threshold=1e-9):
     cntr_cnt = sum(1 for v in bm.verts if v[ml_layer] == ENUM.CENTER)
     unst_cnt = sum(1 for v in bm.verts if v[ml_layer] == ENUM.UNSET)
     ignr_cnt = sum(1 for v in bm.verts if v[ml_layer] == ENUM.IGNORE)
-    forc_cnt = sum(1 for v in bm.verts if v[ml_layer] == ENUM.FORCEIGNORE)
     ok_symbol = "(correct)" if id_cnt * 2 == pair_cnt else "incorrect count!"
-    logs.append(f"{id_cnt} pair ids for {pair_cnt} verives set as 'Pair {ok_symbol}")
-    logs.append(f"{cntr_cnt} vertices set as 'Center'")
-    logs.append(f"{unst_cnt} vertices still 'Unset'")
-    logs.append(f"{forc_cnt} forced as 'Ignore'")
-
-    for v in verts:
-        if v[ml_layer] == FORCEIGNORE:
-            v[ml_layer] = IGNORE
+    logs.append(f"{id_cnt} pair ids for {pair_cnt} 'Pair' vertices {ok_symbol}")
+    logs.append(f"{cntr_cnt} 'Center'")
+    logs.append(f"{unst_cnt} 'Unset'")
+    logs.append(f"{ignr_cnt} 'Ignore' vertices")
 
     if overlap:
         for v in bm.verts:
