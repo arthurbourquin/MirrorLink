@@ -265,10 +265,61 @@ def symetrize(mode=ENUM.XNEGATIVE):
     bpy.ops.object.mode_set(mode=objmode)
 
 
+#=========#=========#=========#=========#=========#=========#=========#=========
+# NEW GETTERS
+#=========#=========#=========#=========#=========#=========#=========#=========
+
+def get_centers_by_attribute(bm, ml_layer):
+    return [v for v in bm.verts if v[ml_layer] == ENUM.CENTER]
+ 
+def get_centers_by_geometry(bm, threshold=1e-4):
+    exact = set()
+    near  = set()
+    for v in bm.verts:
+        dist = abs(v.co.x)
+        if dist == 0.0:
+            exact.add(v)
+        elif dist <= threshold:
+            near.add(v)
+    return {0.0: exact, threshold: near}
+
+# grouped by number of overlapping vertices
+def get_overlapping_by_geometry(bm, threshold=1e-4, tree=None, pair_twist=False):
+    if tree == None:
+        refresh_indices(bm)
+        tree = build_tree(bm)
+    exact = dict() # {neighbor count: set of verts}
+    near  = dict() # same
+    for v in bm.verts:
+        exact_ = set()
+        near_  = set()
+        co = v.co if not pair_twist else Vector((-v.co.x, v.co.y, v.co.z))
+        res = tree.find_range(co, threshold)
+        for _pos, idx, dst in res:
+            if v.index == idx:
+                continue
+            other = bm.verts[idx]
+            if dst == 0:
+                exact_.add(other)
+            else:
+                near_.add(other)
+        exact_len = len(exact_)
+        near_len  = len(near_)
+        exact.setdefault(exact_len, set()).add(v)
+        near.setdefault(near_len, set()).add(v)
+    return {0.0: exact, threshold: near}
+
+def get_pairs_by_geometry(bm, threshold=1e-4, tree=None):
+    return get_overlapping_by_geometry(bm, threshold, tree, True)
+
+
+
+
 
 #=========#=========#=========#=========#=========#=========#=========#=========
 # ALALYZE
 #=========#=========#=========#=========#=========#=========#=========#=========
+
 
 def bucketize_for_center(bm, threshold=1e-4):
     bucket = {0.0: set(), threshold: set(), float("inf"): set()}
@@ -515,7 +566,7 @@ def analyze_geometry(threshold=1e-4):
 # AUTOMATIC SET
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-def set_up_mesh_attribute(threshold=1e-9):
+def set_up_mesh_attribute(threshold=1e-4):
     logs = []
     logs.append("=== set up mesh attribute ===")
 
