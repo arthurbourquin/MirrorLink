@@ -284,7 +284,7 @@ def bucketize_for_pairs(bm, threshold=1e-4):
     for v in bm.verts:
         _other, gap, _yxz = nearest_mirror(bm, tree, v)
         for thr, verts in bucket.items():
-            if gap <= thr:
+            if gap <= thr and v != _other:
                 verts.add(v)
                 break
     return bucket
@@ -309,6 +309,8 @@ def analyze_attribute(threshold=1e-4):
         print("\n".join(logs))
         return
 
+    # Processing
+
     bm.verts.ensure_lookup_table()
 
     vertices = {}
@@ -320,10 +322,17 @@ def analyze_attribute(threshold=1e-4):
             vertices[id] = []
         vertices[id].append(v)
 
-    # check pairs
+    # 'Center'
+    centers = vertices.get(CENTER, [])
+    mislocated_centers = []
+    for v in centers:
+        if abs(v.co.x) > threshold:
+            mislocated_centers.append(v)
+
+    # 'Pair'
     pairs = {k: v for k, v in vertices.items() if k >= ENUM.FIRSTPAIR}
     not_dual_pairs = []
-    not_matching_pairs = []
+    mislocated_pairs = []
     for id, verts in pairs.items():
         if len(verts) != 2:
             not_dual_pairs += verts
@@ -333,42 +342,52 @@ def analyze_attribute(threshold=1e-4):
         dy = abs(v1.co.y - v2.co.y)
         dz = abs(v1.co.z - v2.co.z)
         if dx >= threshold or dy >= threshold or dz >= threshold:
-            not_matching_pairs.extend(verts)
-    pairs_ok = len(not_dual_pairs) == 0 and len(not_matching_pairs) == 0
+            mislocated_pairs.extend(verts)
 
-    # check centers
-    centers = vertices.get(CENTER, [])
-    not_at_center = []
-    for v in centers:
-        if abs(v.co.x) > threshold:
-            not_at_center.append(v)
-    centers_ok = len(not_at_center) == 0
-
-    # unset
+    # 'Unset'
     unsets = vertices.get(UNSET, [])
-    nothing_unset = len(unsets) == 0
 
-    # unset
-    ignore = vertices.get(IGNORE, [])
-    nothing_ignored = len(ignore) == 0
+    # 'Ignore'
+    ignores = vertices.get(IGNORE, [])
 
     # other
     others = vertices.get("OTHER", [])
-    no_undefined = len(others) == 0
 
-    logs.append(f"{len(bm.verts)} vertices")
-    logs.append("")
+    # Analyze and deduce
 
-    if all((pairs_ok, centers_ok, nothing_unset, no_undefined)):
-        logs.append("Mesh is sane ✓")
-        logs.append("")
+    ctr_len = len(centers)
+    par_len = len(pairs)
+    uns_len = len(unsets)
+    ign_len = len(ignores)
+    oth_len = len(ignores)
 
-    logs.append(f"{len(not_dual_pairs)} broken pair (pair-id for single vertex or more than 2)")
-    logs.append(f"{len(not_matching_pairs)} 'Pairs' vertices misplaced")
-    logs.append(f"{len(not_at_center)} 'Centers' vertices misplaced")
-    logs.append(f"{len(unsets)} 'Unset' vertices")
-    logs.append(f"{len(ignore)} 'Ignore' vertices")
-    logs.append(f"{len(others)} undefined vertices")
+    mis_ctr_len = len(mislocated_centers)
+    mis_par_len = len(mislocated_pairs)
+
+    brk_par_len = len(not_dual_pairs)
+
+    all_set = len(bm.verts) == ctr_len + par_len + ign_len
+
+
+    if all_set and not mis_ctr_len and not mis_par_len:
+        logs.append("Mesh is very sane")
+    else:
+        logs.append("Warning")
+        if mis_ctr_len:
+            logs.append(f"{mis_ctr_len} mislocated 'Center' vertices")
+        if mis_par_len:
+            logs.append(f"{mis_par_len} mislocated 'Pair' vertices")
+        if brk_par_len:
+            logs.append(f"{brk_par_len} broken 'Pair' vertices")
+        if oth_len:
+            logs.append(f"{oth_len} undefined vertices...")
+
+    logs.append(f"{ctr_len} 'Center' vertices")
+    logs.append(f"{par_len} 'Pair' vertices")
+    logs.append(f"{uns_len} 'Unset' vertices")
+    logs.append(f"{ign_len} 'Ignore' vertices")
+    logs.append(f"{oth_len} undefined vertices")
+
     utils.alert(logs)
     print("\n".join(logs))
 
@@ -376,7 +395,6 @@ def analyze_attribute(threshold=1e-4):
 
 def analyze_geometry(threshold=1e-4):
     logs = []
-    logs.append("\n=== Analyze Mesh ===")
 
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not obj:
@@ -389,51 +407,81 @@ def analyze_geometry(threshold=1e-4):
 
     bm.verts.ensure_lookup_table()
     total = len(bm.verts)
+
+    # Processing
+
+    o_bkt = bucketize_for_overlapping(bm, threshold)
+    o_zero = o_bkt[0]
+    o_near = o_bkt[threshold]
+    o_zero_len = len(o_zero)
+    o_near_len = len(o_near)
+    o_len = o_zero_len + o_near_len
+    no_overlap = o_len == 0
+
+    c_bkt = bucketize_for_center(bm, threshold)
+    c_zero = c_bkt[0]
+    c_near = c_bkt[threshold]
+    c_zero_len = len(c_zero)
+    c_near_len = len(c_near)
+    c_len = c_zero_len + c_near_len
+    no_center = c_len == 0
+
+    p_bkt = bucketize_for_pairs(bm, threshold)
+    p_zero = p_bkt[0]
+    p_near = p_bkt[threshold]
+    p_zero_len = len(p_zero)
+    p_near_len = len(p_near)
+    p_len = p_zero_len + p_near_len
+    no_pair = p_len == 0
+
+    undefined_vertices = len(bm.verts) - c_len - p_len
+
+    overlapping_center = compare_buckets(o_bkt, c_bkt)
+    overlapping_pair = compare_buckets(o_bkt, p_bkt)
+    center_and_pair = compare_buckets(c_bkt, p_bkt)
+
+    # Analyze and deduce
+
+    o_c_len = len(overlapping_center)
+    o_p_len = len(overlapping_pair)
+    c_p_len = len(center_and_pair)
+    no_ambiguities = o_c_len + o_p_len + c_p_len == 0
+    perfect_positionning = o_near_len + c_near_len + p_near_len == 0
+
+
+    logs.append("\n=== Analyze Mesh ===")
     logs.append(f"{total} vertices\n")
     logs.append(f"Used threshold precision: {mag(threshold)}")
     logs.append("")
 
-    # Overlapping
-    overlap_bucket = bucketize_for_overlapping(bm, threshold)
-    ovr_zero = overlap_bucket[0]
-    ovr_near = overlap_bucket[threshold]
-    ovr_far = overlap_bucket[float("inf")]
-    ozl, onl, ofl = [len(ovr_zero), len(ovr_near), len(ovr_far)]
-    if ozl + onl == 0:
-        logs.append("No overlapping vertices ✓")
-        logs.append("")
+    if no_overlap and not no_pair and not undefined_vertices and no_ambiguities:
+        if perfect_positionning:
+            logs.append("Mesh is very sane!")
+            logs.append("✓ No overlaps")
+            logs.append("✓ No ambigute vertex (ie both 'Pair' and 'Center' candidate)")
+            logs.append("✓ 'Pairs' candidates at perfect mirror locations")
+        else:
+            logs.append(f"Mesh is sane for threshold {threshold}")
+            logs.append("✓ No overlaps")
+            logs.append("✓ No ambigous vertex (ie both 'Pair' and 'Center' candidate)")
+            logs.append("✓ 'Pairs' candidates at perfect mirror locations")
     else:
-        logs.append("Overlapping")
-        logs.append(f"{ozl + onl} vertices are considered overlapping")
-        logs.append(f"{ozl} of which are exact overlaps")
-        logs.append("")
-
-
-    # Center
-    center_bucket = bucketize_for_center(bm, threshold)
-    ctr_zero = center_bucket[0]
-    ctr_near = center_bucket[threshold]
-    ctr_far = center_bucket[float("inf")]
-    czl, cnl, cfl = [len(ctr_zero), len(ctr_near), len(ctr_far)]
-    logs.append("Center")
-    logs.append(f"{czl + cnl} vertices are considered at the center")
-    logs.append(f"{czl} of which are exactly at x = 0")
+        logs.append("Warning")
+        if undefined_vertices:
+            logs.append(f"{undefined_vertices} vertices neiter 'Pairs' nor 'Center' candidate")
+        if o_len:
+            logs.append(f"{o_len} overlapping vertices, {o_zero_len} perfectly overlapping")
+        if o_c_len:
+            logs.append(f"{o_c_len} overlapping 'Center' candidates")
+        if o_p_len:
+            logs.append(f"{o_p_len} overlapping 'Pair' candidates")
+        if c_p_len:
+            logs.append(f"{c_p_len} Both 'Center' and 'Pair' candidates")
     logs.append("")
 
-    # Pair
-    pair_bucket = bucketize_for_pairs(bm, threshold)
-    pair_zero = pair_bucket[0]
-    pair_near = pair_bucket[threshold]
-    pair_far = pair_bucket[float("inf")]
-    pzl, pnl, pfl = [len(pair_zero), len(pair_near), len(pair_far)]
-    logs.append("Pair")
-    logs.append(f"{pzl + pnl} vertices are considered having a match at -x")
-    logs.append(f"{pzl} of which are exact match (x, y, z)")
-    logs.append("")
-
-    center_and_pairs = len(compare_buckets(center_bucket, pair_bucket))
-    if center_and_pairs > 0:
-        logs.append(f"{center_and_pairs} vertices are both considered pairs and center")
+    logs.append(f"{o_len} overlapping vertices")
+    logs.append(f"{c_len} 'Center' candidates")
+    logs.append(f"{p_len} 'Pair' candidates")
 
     utils.alert(logs)
     print("\n".join(logs))
