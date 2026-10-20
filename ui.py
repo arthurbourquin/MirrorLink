@@ -25,6 +25,7 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
         layout.label(text="")
         layout.label(text="SELECTION")
         row = layout.row(align=True)
+        row.operator("mirrorlink.select_ambigous", text="ambigous")
         row.operator("mirrorlink.select_center_vertices", text="at center")
         row.operator("mirrorlink.select_overlapping_vertices", text="overlapping")
         row = layout.row(align=True)

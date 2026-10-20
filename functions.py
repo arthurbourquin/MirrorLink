@@ -63,6 +63,25 @@ def select_overlapping_vertices(threshold):
     print(f"{count} vertices selected")
     bmesh.update_edit_mesh(mesh)
 
+def select_ambigous(threshold):
+    print("Select Center Vertices")
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+    if not ml_layer: return
+    refresh_indices(bm)
+    pair_bucket = bucketize_for_pairs(bm, threshold)
+    sel_pair = pair_bucket[float("inf")]
+    center_bucker = bucketize_for_center(bm, threshold)
+    sel_ctr = center_bucker[float("inf")]
+    sel_ignore = set([v for v in bm.verts if v[ml_layer] != ENUM.IGNORE])
+    ambigous = sel_pair & sel_ctr & sel_ignore
+    print(len(ambigous))
+    for v in bm.verts:
+        v.select_set(False)
+    for v in ambigous:
+        v.select_set(True)
+    bmesh.update_edit_mesh(mesh)
+
+
 def select_center_vertices(threshold):
     print("Select Center Vertices")
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()

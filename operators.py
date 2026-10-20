@@ -22,7 +22,11 @@ class SelectOverlappingVertices(BaseOperator):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
         functions.select_overlapping_vertices(threshold)
 
-
+@register_class
+class SelectAmbigous(BaseOperator):
+    def run(self, context):
+        threshold = 10 ** context.scene.mirrorlink_precision_exponent
+        functions.select_ambigous(threshold)
 
 #=========#=========#=========#=========#=========#=========#=========#=========
 # SELECTION BY ENUM VALUE
