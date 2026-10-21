@@ -43,13 +43,13 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
         layout.label(text="Location & Attribute")
         row = layout.row(align=True)
-        row.operator("mirrorlink.set_centers_at_zero", text="Set 'Center' at x=0")
+        row.operator("mirrorlink.set_centers_at_zero", text="'Center' at x = 0")
         row.scale_y = 2
         row = layout.row(align=True)
         left = row.column(align=True)
         left.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="")
         e = left.row(align=True)
-        e.operator("mirrorlink.symetrize_pair", text="Pair")
+        e.operator("mirrorlink.symetrize_pair", text="Pair", icon="LINKED")
         e.scale_y = 3
         right = row.column(align=True)
         right.prop(context.scene, "mirrorlink_pair_mesh", text="",)

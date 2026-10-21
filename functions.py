@@ -374,7 +374,7 @@ def compare_buckets(bucketA, bucketB):
 
 def analyze_attribute(threshold=1e-4):
     logs = []
-    logs.append("=== Analyze Linkage ===")
+    logs.append("=== Analyze Attribute ===")
 
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not obj:
@@ -386,14 +386,10 @@ def analyze_attribute(threshold=1e-4):
 
     bm.verts.ensure_lookup_table()
 
-    vertices = {}
+    vertices = dict() # {attribute value: verts}
     for v in bm.verts:
-        id = v[ml_layer]
-        if id < ENUM.IGNORE:
-            id = "OTHER"
-        if id not in vertices:
-            vertices[id] = []
-        vertices[id].append(v)
+        att_val = v[ml_layer]
+        vertices.setdefault(att_val, []).add(v)
 
     # 'Center'
     centers = vertices.get(ENUM.CENTER, [])
@@ -404,6 +400,11 @@ def analyze_attribute(threshold=1e-4):
 
     # 'Pair'
     pairs = {k: v for k, v in vertices.items() if k >= ENUM.FIRSTPAIR}
+    print("=== AH ===")
+    for a, b in pairs.items():
+        print(a)
+        print(b)
+    print("=== BEH ===")
     not_dual_pairs = []
     mislocated_pairs = []
     for id, verts in pairs.items():
