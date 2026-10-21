@@ -10,38 +10,6 @@ from .utils import ENUM
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# UTILITY
-#=========#=========#=========#=========#=========#=========#=========#=========
-
-def refresh_indices(bm):
-    for seq in (bm.verts, bm.edges, bm.faces):
-        seq.index_update()
-        seq.ensure_lookup_table()
-
-def build_tree(bm):
-    bm.verts.ensure_lookup_table()
-    tree = KDTree(len(bm.verts))
-    for v in bm.verts:
-        tree.insert(v.co, v.index)
-    tree.balance()
-    return tree
-
-def nearest_mirror(bm, tree, v):
-    """Retourne (vertex_miroir, dist_3d, (dx, dy, dz)) pour le vertex v."""
-    mirrored = Vector((-v.co.x, v.co.y, v.co.z))
-    co, idx, gap = tree.find(mirrored)
-    other = bm.verts[idx]
-
-    dx = v.co.x + other.co.x
-    dy = v.co.y - other.co.y
-    dz = v.co.z - other.co.z
-    return other, gap, (dx, dy, dz)
-
-def get_available_pair_id(bm, ml_layer):
-    return max([v[ml_layer] for v in bm.verts]) + 1
-
-
-#=========#=========#=========#=========#=========#=========#=========#=========
 # SELECTION (GEOMETRY BASED)
 #=========#=========#=========#=========#=========#=========#=========#=========
 
@@ -49,25 +17,30 @@ def select_overlapping_vertices(threshold):
     print("Select Overlapping Vertices")
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
-    refresh_indices(bm)
-    tree = build_tree(bm)
+
+    utils.refresh_indices(bm)
+    bm.verts.ensure_lookup_table()
+    tree = KDTree(len(bm.verts))
+    for v in bm.verts:
+        tree.insert(v.co, v.index)
+    tree.balance()
+
+    for v in bm.verts:
+        v.select_set(False)
     count = 0
     for v in bm.verts:
-        for _, idx, _ in tree.find_range(v.co, threshold):
-            other = bm.verts[idx]
+        for _pos, idx, _dst in tree.find_range(v.co, threshold):
             if idx != v.index:
                 v.select_set(True)
                 count += 1
-            else:
-                v.select_set(False)
-    print(f"{count} vertices selected")
     bmesh.update_edit_mesh(mesh)
+    print(f"{count} vertices selected")
 
 def select_ambigous(threshold):
     print("Select Center Vertices")
     obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
     if not ml_layer: return
-    refresh_indices(bm)
+    utils.refresh_indices(bm)
     pair_bucket = bucketize_for_pairs(bm, threshold)
     sel_pair = pair_bucket[float("inf")]
     center_bucker = bucketize_for_center(bm, threshold)
@@ -265,56 +238,6 @@ def symetrize(mode=ENUM.XNEGATIVE):
     bpy.ops.object.mode_set(mode=objmode)
 
 
-#=========#=========#=========#=========#=========#=========#=========#=========
-# NEW GETTERS
-#=========#=========#=========#=========#=========#=========#=========#=========
-
-def get_centers_by_attribute(bm, ml_layer):
-    return [v for v in bm.verts if v[ml_layer] == ENUM.CENTER]
- 
-def get_centers_by_geometry(bm, threshold=1e-4):
-    exact = set()
-    near  = set()
-    for v in bm.verts:
-        dist = abs(v.co.x)
-        if dist == 0.0:
-            exact.add(v)
-        elif dist <= threshold:
-            near.add(v)
-    return {0.0: exact, threshold: near}
-
-# grouped by number of overlapping vertices
-def get_overlapping_by_geometry(bm, threshold=1e-4, tree=None, pair_twist=False):
-    if tree == None:
-        refresh_indices(bm)
-        tree = build_tree(bm)
-    exact = dict() # {neighbor count: set of verts}
-    near  = dict() # same
-    for v in bm.verts:
-        exact_ = set()
-        near_  = set()
-        co = v.co if not pair_twist else Vector((-v.co.x, v.co.y, v.co.z))
-        res = tree.find_range(co, threshold)
-        for _pos, idx, dst in res:
-            if v.index == idx:
-                continue
-            other = bm.verts[idx]
-            if dst == 0:
-                exact_.add(other)
-            else:
-                near_.add(other)
-        exact_len = len(exact_)
-        near_len  = len(near_)
-        exact.setdefault(exact_len, set()).add(v)
-        near.setdefault(near_len, set()).add(v)
-    return {0.0: exact, threshold: near}
-
-def get_pairs_by_geometry(bm, threshold=1e-4, tree=None):
-    return get_overlapping_by_geometry(bm, threshold, tree, True)
-
-
-
-
 
 #=========#=========#=========#=========#=========#=========#=========#=========
 # ALALYZE
@@ -333,8 +256,8 @@ def bucketize_for_center(bm, threshold=1e-4):
 
 def bucketize_for_overlapping(bm, threshold=1e-4):
     bucket = {0.0: set(), threshold: set(), float("inf"): set()}
-    refresh_indices(bm)
-    tree = build_tree(bm)
+    utils.refresh_indices(bm)
+    tree = utils.build_tree(bm)
     for v in bm.verts:
         dist = float("inf")
         for _co, idx, d in tree.find_range(v.co, threshold):
@@ -352,10 +275,10 @@ def bucketize_for_overlapping(bm, threshold=1e-4):
 
 def bucketize_for_pairs(bm, threshold=1e-4):
     bucket = {0.0: set(), threshold: set(), float("inf"): set()}
-    refresh_indices(bm)
-    tree = build_tree(bm)
+    utils.refresh_indices(bm)
+    tree = utils.build_tree(bm)
     for v in bm.verts:
-        _other, gap, _yxz = nearest_mirror(bm, tree, v)
+        _other, gap, _yxz = utils.nearest_mirror(bm, tree, v)
         for thr, verts in bucket.items():
             if gap <= thr and v != _other:
                 verts.add(v)
@@ -389,7 +312,7 @@ def analyze_attribute(threshold=1e-4):
     vertices = dict() # {attribute value: verts}
     for v in bm.verts:
         att_val = v[ml_layer]
-        vertices.setdefault(att_val, []).add(v)
+        vertices.setdefault(att_val, set()).add(v)
 
     # 'Center'
     centers = vertices.get(ENUM.CENTER, [])
@@ -576,8 +499,8 @@ def set_up_mesh_attribute(threshold=1e-4):
         print("No object found...")
         return
 
-    refresh_indices(bm)
-    tree = build_tree(bm)
+    utils.refresh_indices(bm)
+    tree = utils.build_tree(bm)
 
     # Overlapping
     overlap_bucket = bucketize_for_overlapping(bm, threshold)
@@ -601,12 +524,12 @@ def set_up_mesh_attribute(threshold=1e-4):
     verts = [v for v in verts if v[ml_layer] == ENUM.UNSET]
     # takes the first mirror verex, but should not be more:
     # we ignored overlapping vertices
-    refresh_indices(bm)
-    tree = build_tree(bm)
+    utils.refresh_indices(bm)
+    tree = utils.build_tree(bm)
     pair_id = ENUM.FIRSTPAIR
     for v in verts:
         if v[ml_layer] == ENUM.UNSET:
-            other, gap, _xyz = nearest_mirror(bm, tree, v)
+            other, gap, _xyz = utils.nearest_mirror(bm, tree, v)
             if gap <= threshold:
                 v[ml_layer]     = pair_id
                 other[ml_layer] = pair_id

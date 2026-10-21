@@ -2,6 +2,7 @@ import bpy
 import bmesh
 from enum import IntEnum
 from mathutils import Vector
+from mathutils.kdtree import KDTree
 
 ATTNAME = 'pair-id'
 
@@ -16,7 +17,15 @@ class ENUM(IntEnum):
     XNEGATIVE = -11
     AVERAGE = -20
     ACTIVE = -21
+    # getters
+    SELECT = -30
+    RETURN = -31
 
+
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# PRINT ALERT
+#=========#=========#=========#=========#=========#=========#=========#=========
 
 def alert(message, title="Tohm Mirror Link", icon='INFO'):
     if isinstance(message, list):
@@ -31,6 +40,23 @@ def alert(message, title="Tohm Mirror Link", icon='INFO'):
             self.layout.label(text=l)
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
+
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# MISCELLANEOUS
+#=========#=========#=========#=========#=========#=========#=========#=========
+
+def mirror(co):
+    return Vector((-co.x, co.y, co.z))
+
+def get_available_pair_id(bm, ml_layer):
+    return max([v[ml_layer] for v in bm.verts]) + 1
+
+
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# BMESH
+#=========#=========#=========#=========#=========#=========#=========#=========
 
 def get_bmesh_stuff():
     # get active object
@@ -50,7 +76,30 @@ def get_bmesh_stuff():
             v[ml_layer] = -1
     return (obj, mesh, bm, ml_layer, objmode)
 
+def refresh_indices(bm):
+    for seq in (bm.verts, bm.edges, bm.faces):
+        seq.index_update()
+        seq.ensure_lookup_table()
 
 
-def mirror(co):
-    return Vector((-co.x, co.y, co.z))
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# KDTREE RELATED
+#=========#=========#=========#=========#=========#=========#=========#=========
+
+def nearest_mirror(bm, tree, v):
+    mirrored = mirror(v.co)
+    co, idx, gap = tree.find(mirrored)
+    other = bm.verts[idx]
+    dx = v.co.x + other.co.x
+    dy = v.co.y - other.co.y
+    dz = v.co.z - other.co.z
+    return other, gap, (dx, dy, dz)
+
+def build_tree(bm):
+    bm.verts.ensure_lookup_table()
+    tree = KDTree(len(bm.verts))
+    for v in bm.verts:
+        tree.insert(v.co, v.index)
+    tree.balance()
+    return tree
