@@ -6,6 +6,35 @@ from mathutils.kdtree import KDTree
 
 ATTNAME = 'pair-id'
 
+"""
+                set     symetrize
+pair            
+center
+unset
+igore
+overlap
+broken pair
+
+
+31    -             avoid (blender int sign)
+30    to ignore     user defined
+29    is set
+28    is pair
+27    is valid      'Pair': 2 vertices, 'Center': near x = 0 && single or 2 vertices
+26    is left       for 'Pair'
+25    is center     
+0-24  pair-id       16 millions
+
+31    : avoid (sign, blender int)
+30    : set
+29    : pair
+28    : center
+27    : left
+26    : ignore (posé par l'user)
+0-25  : pair-id (~67M)
+"""
+
+
 class ENUM(IntEnum):
     # Mirror Link Addon Attribute
     FIRSTPAIR = 1
@@ -142,4 +171,3 @@ def get_pair_candidates(obj, mesh, bm, ml_layer, objmode, tree, threshold):
             near.setdefault(near_, set()).add(v)
     obj.mode = objmode
     return {0.0: exact, threshold: near}
-
