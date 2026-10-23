@@ -103,3 +103,43 @@ def build_tree(bm):
         tree.insert(v.co, v.index)
     tree.balance()
     return tree
+
+
+
+#=========#=========#=========#=========#=========#=========#=========#=========
+# GET
+#=========#=========#=========#=========#=========#=========#=========#=========
+
+def get_center_candidates(obj, mesh, bm, ml_layer, objmode, threshold):
+    exact = dict()
+    near = dict()
+    for v in bm.verts:
+        dst = abs(v.co.x)
+        if dst == 0.0:
+            exact.add(v)
+        else:
+            near.add(v)
+    return {0.0: exact, threshold: near}
+
+def get_pair_candidates(obj, mesh, bm, ml_layer, objmode, tree, threshold):
+    print("=== Get Pairs Candidates ===")
+    exact = dict()
+    near = dict()
+    for v in bm.verts:
+        co = mirror(v.co)
+        res = tree.find_range(co, threshold)
+        exact_ = 0
+        near_ = 0
+        for _co, idx, dst in res:
+            if idx != v.index:
+                if dst == 0.0:
+                    exact_ += 1
+                else:
+                    near_ += 1
+        if exact_:
+            exact.setdefault(exact_, set()).add(v)
+        if near_:
+            near.setdefault(near_, set()).add(v)
+    obj.mode = objmode
+    return {0.0: exact, threshold: near}
+
