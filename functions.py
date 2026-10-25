@@ -86,7 +86,7 @@ def scan_mesh(threshold=1e-4, mode=ENUM.REPORT):
     elif mode == ENUM.SELECT:
         for v in bm.verts:
             v.select_set(False)
-        for v in broken:
+        for v in broken | set(broken_pairs):
             v.select_set(True)
         bm.select_flush_mode()
     else:

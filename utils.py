@@ -120,7 +120,7 @@ def get_bmesh_stuff():
     if ml_layer is None:
         ml_layer = bm.verts.layers.int.new(ATTNAME)
         for v in bm.verts:
-            v[ml_layer] = ENUM.UNSET
+            v[ml_layer] = ATT.UNSET
     return (obj, mesh, bm, ml_layer, objmode)
 
 
