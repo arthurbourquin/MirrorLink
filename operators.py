@@ -1,56 +1,103 @@
 import bpy
+import bmesh
 
 from . import functions
 from .core import BaseOperator, register_class
-from.utils import ENUM
+from . import utils
+from.utils import ENUM, ATT
+
+
+
+
+
+
+
 
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION (WITHOUT BINOM ID ENUM)
+# SELECTION
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_class
-class SelectCenterVertices(BaseOperator):
-    def run(self, context):
-        threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.select_center_vertices(threshold)
+# GEOMETRY BASED
 
 @register_class
 class SelectOverlappingVertices(BaseOperator):
+    bl_description =  "Select all overlapping vertices\n"
+    bl_description += "(regardless of attribute)"
     def run(self, context):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.select_overlapping_vertices(threshold)
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        tree = utils.build_tree(bm.verts)
+        overlaps = utils.get_overlapping(bm, bm.verts, tree, threshold)
+        for v in overlaps:
+            v.select_set(True)
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
+
+
 
 @register_class
-class SelectAmbigous(BaseOperator):
+class SelectCenterVertices(BaseOperator):
+    bl_description =  "Select all vertices at center\n"
+    bl_description += "(regardless of attribute)"
     def run(self, context):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.select_ambigous(threshold)
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        for v in bm.verts:
+            if abs(v.co.x) < threshold:
+                v.select_set(True)
+            else:
+                v.select_set(False)
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
 
-#=========#=========#=========#=========#=========#=========#=========#=========
-# SELECTION BY ENUM VALUE
-#=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_class
-class SelectMarkedPair(BaseOperator):
-    def run(self, context):
-        functions.select_by_attribute_value(ENUM.FIRSTPAIR)
 
-@register_class
-class SelectMarkedCenter(BaseOperator):
-    def run(self, context):
-        functions.select_by_attribute_value(ENUM.CENTER)
+# ATTRIBUTE BASED
+
+def select_by_attribute_value(att_val):
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+    if not ml_layer: return
+    for v in bm.verts:
+        v_att_val = min(v[ml_layer], ATT.FIRSTPAIR)
+        if att_val == v_att_val:
+            v.select_set(True)
+        else:
+            v.select_set(False)
+    bm.select_flush_mode()
+    bmesh.update_edit_mesh(mesh)
+
+
 
 @register_class
 class SelectMarkedUnset(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(ENUM.UNSET)
+        select_by_attribute_value(ATT.UNSET)
 
 @register_class
 class SelectMarkedIgnore(BaseOperator):
     def run(self, context):
-        functions.select_by_attribute_value(ENUM.IGNORE)
+        select_by_attribute_value(ATT.IGNORE)
+
+@register_class
+class SelectMarkedPair(BaseOperator):
+    def run(self, context):
+        select_by_attribute_value(ATT.FIRSTPAIR)
+
+@register_class
+class SelectMarkedCenter(BaseOperator):
+    def run(self, context):
+        select_by_attribute_value(ATT.CENTER)
+
+
+
+
+
+
+
 
 
 
@@ -58,22 +105,34 @@ class SelectMarkedIgnore(BaseOperator):
 # SET ENUM
 #=========#=========#=========#=========#=========#=========#=========#=========
 
-@register_class
-class SetIdToSelectedPair(BaseOperator):
-    def run(self, context):
-        functions.set_id_to_selected_pair()
-@register_class
-class SetSelectedToCenter(BaseOperator):
-    def run(self, context):
-        functions.set_selected(ENUM.CENTER)
-@register_class
-class SetSelectedToUnset(BaseOperator):
-    def run(self, context):
-        functions.set_selected(ENUM.UNSET)
+def set_selected(attribute_value):
+    obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+    if not ml_layer: return
+    for v in bm.verts:
+        if v.select:
+            v[ml_layer] = attribute_value
+
 @register_class
 class SetSelectedToIgnore(BaseOperator):
     def run(self, context):
-        functions.set_selected(ENUM.IGNORE)
+        set_selected(ATT.IGNORE)
+
+@register_class
+class SetSelectedToUnset(BaseOperator):
+    def run(self, context):
+        set_selected(ATT.UNSET)
+
+@register_class
+class SetSelectedToCenter(BaseOperator):
+    def run(self, context):
+        set_selected(ATT.CENTER)
+
+
+
+
+
+
+
 
 
 
@@ -85,7 +144,12 @@ class SetSelectedToIgnore(BaseOperator):
 class SetCentersAtZero(BaseOperator):
     bl_description = "Set 'Center' vertices à x = 0"
     def run(self, context):
-        functions.set_centers_at_zero()
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        for v in [vtx for vtx in bm.verts if vtx[ml_layer] == ATT.CENTER]:
+            v.co.x = 0
+        bmesh.update_edit_mesh(mesh)
+
 
 
 @register_class
@@ -95,8 +159,30 @@ class SymetrizePair(BaseOperator):
     bl_description += "- Vertices will have the same unique 'Pair' ID\n"
     bl_description += "- Vertices will be moved to be mirror of each other"
     def run(self, context):
-        mesh_mode = int(context.scene.mirrorlink_pair_2_verts_mode)
-        functions.symetrize_pair(mesh_mode)
+        mode = int(context.scene.mirrorlink_pair_2_verts_mode)
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        # check selection
+        selection = [v for v in bm.verts if v.select]
+        if len(selection) != 2:
+            utils.alert("Need 2 selected vertives, no less, no more.")
+            return
+        # set active if active and selected
+        act = bm.select_history.active
+        if act: sel = [v for v in selection if v != act][0]
+        else:   act, sel = selection
+        # set coordinates
+        act.co, sel.co = utils.symetrize_coordinates(act.co, sel.co, mode)
+        # get & set pid
+        if utils.is_pair(act[ml_layer]):   pid = act[ml_layer]
+        elif utils.is_pair(sel[ml_layer]): pid = sel[ml_layer]
+        else:                              pid = utils.get_available_pair_id(bm, ml_layer)
+        act[ml_layer] = pid
+        sel[ml_layer] = pid
+        #
+        bmesh.update_edit_mesh(mesh)
+        bpy.ops.object.mode_set(mode=objmode)
+
 
 
 @register_class
@@ -106,50 +192,51 @@ class SymetrizeWholeMesh(BaseOperator):
     bl_description += "- for each 'Pair' symetrize both vertices\n"
     bl_description += "- leave 'Center', 'Unset' and 'Ignore' vertices untouched"
     def run(self, context):
-        mesh_mode = int(context.scene.mirrorlink_pair_mesh)
-        functions.symetrize(mesh_mode)
+        mode = int(context.scene.mirrorlink_pair_mesh)
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not obj: return
+        all_pairs = [v for v in bm.verts if utils.is_pair(v[ml_layer])]
+        pair_dict = utils.group_verts_by_pid(all_pairs, ml_layer)
+        valid_pairs = [pair for pair in pair_dict.values() if len(pair) == 2]
+        for v1, v2 in valid_pairs:
+            co1, co2 = utils.symetrize_coordinates(v1.co, v2.co, mode)
+            v1.co = co1
+            v2.co = co2
+        bmesh.update_edit_mesh(mesh)
+        bpy.ops.object.mode_set(mode=objmode)
+
+
+
+
+
+
 
 
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# WALKS
+# SCAN
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 @register_class
-class AnalyzeGeometry(BaseOperator):
-    bl_description =  "Analysis of the mesh GEOMETRY using\n"
-    bl_description += "only the vertex coordinates,\n"
-    bl_description += "- No attribute needed\n"
-    bl_description += "- No attribute reading)\n"
-    bl_description += "- No modifications"
+class ScanMeshReport(BaseOperator):
+    bl_description =  "Scan Mesh and report (no modifications)\n"
     def run(self, context):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.analyze_geometry(threshold)
+        functions.scan_mesh(threshold, ENUM.REPORT)
 
 @register_class
-class AnalyzeAttribute(BaseOperator):
-    bl_description =  "Analysis of the mesh ENUM:\n"
-    bl_description += "'Pair', 'Center', 'Unset', 'Ignore\n"
-    bl_description += "- No modifications"
+class ScanMeshSelect(BaseOperator):
+    bl_description =  "Scan Mesh and select bad elements\n"
     def run(self, context):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.analyze_attribute(threshold)
+        functions.scan_mesh(threshold, ENUM.SELECT)
 
 @register_class
-class SetUpMeshAttribute(BaseOperator):
-    bl_description =  "Walk the whole mesh to find 'Pairs' and 'Center'\n"
-    bl_description += "- 'Unset', 'Pair' and 'Center' vertices will be reset\n"
-    bl_description += "- 'Unset', 'Pair' and 'Center' can be set as 'Ignore'\n"
-    bl_description += "- 'Ignore' vertices will be untouched"
+class ScanMeshSet(BaseOperator):
+    bl_description  = "Scan the mesh and set up the attribute.\n"
+    bl_description += "Only 'Unset' vertices are modified: those identified\n"
+    bl_description += "as 'Pair' or 'Center' will be set accordingly."
     def run(self, context):
         threshold = 10 ** context.scene.mirrorlink_precision_exponent
-        functions.set_up_mesh_attribute(threshold)
-
-@register_class
-class BuildSymFromSemiMesh(BaseOperator):
-    bl_description =  "Build a proper symetric mesh\n"
-    bl_description =  "Same as applying a Mirror Modifier but\n"
-    bl_description =  "all 'Pair' and 'Center' correctly assigned"
-    def run(self, context):
-        functions.build_sym_from_semi_mesh()
+        functions.scan_mesh(threshold, ENUM.SET)

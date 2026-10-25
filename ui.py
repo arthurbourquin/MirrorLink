@@ -13,33 +13,34 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         
-        layout.label(text="GENERAL")
         layout.prop(context.scene, "mirrorlink_precision_exponent")
 
         layout.label(text="")
-        layout.label(text="ANALYZE")
+        layout.label(text="MESH SCAN")
         row = layout.row(align=True)
-        row.operator("mirrorlink.analyze_geometry", text="Geometry")
-        row.operator("mirrorlink.analyze_attribute", text="Attribute")
+        row.scale_y = 2
+        row.operator("mirrorlink.scan_mesh_report", text="Report")
+        row.operator("mirrorlink.scan_mesh_select", text="Select")
+        row.operator("mirrorlink.scan_mesh_set",    text="Set!")
+
 
         layout.label(text="")
         layout.label(text="SELECTION")
         row = layout.row(align=True)
-        row.operator("mirrorlink.select_ambigous", text="ambigous")
-        row.operator("mirrorlink.select_center_vertices", text="at center")
         row.operator("mirrorlink.select_overlapping_vertices", text="overlapping")
+        row.operator("mirrorlink.select_center_vertices", text="at center")
         row = layout.row(align=True)
+        row.operator("mirrorlink.select_marked_ignore", text="'Ignore'")
+        row.operator("mirrorlink.select_marked_unset", text="'Unset'")
         row.operator("mirrorlink.select_marked_pair", text="'Pairs'")
         row.operator("mirrorlink.select_marked_center", text="'Center'")
-        row.operator("mirrorlink.select_marked_unset", text="'Unset'")
-        row.operator("mirrorlink.select_marked_ignore", text="'Ignore'")
 
         layout.label(text="")
         layout.label(text="MODIFICATION")
-        layout.label(text="Attribute")
         row = layout.row(align=True)
-        row.operator("mirrorlink.set_selected_to_unset", text="'Unset'")
-        row.operator("mirrorlink.set_selected_to_ignore", text="'Ignore'")
+        row.operator("mirrorlink.set_selected_to_ignore", text="Mark 'Ignore'")
+        row.operator("mirrorlink.set_selected_to_unset", text="Mark 'Unset'")
+        row.operator("mirrorlink.set_selected_to_center", text="Mark 'Center'")
 
         layout.label(text="Location & Attribute")
         row = layout.row(align=True)
@@ -49,17 +50,13 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
         left = row.column(align=True)
         left.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="")
         e = left.row(align=True)
-        e.operator("mirrorlink.symetrize_pair", text="Pair", icon="LINKED")
+        e.operator("mirrorlink.symetrize_pair", text="Pair")
         e.scale_y = 3
         right = row.column(align=True)
         right.prop(context.scene, "mirrorlink_pair_mesh", text="",)
         e = right.row(align=True)
-        e.operator("mirrorlink.symetrize_whole_mesh", text="Symetrize")
+        e.operator("mirrorlink.symetrize_whole_mesh", text="Restore Symetry")
         e.scale_y = 3
-
-        row = layout.row(align=True)
-        row.scale_y = 2
-        row.operator("mirrorlink.set_up_mesh_attribute", text="Set Up Mesh")
 
 
 
