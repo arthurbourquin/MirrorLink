@@ -102,7 +102,7 @@ class SelectMarkedCenter(BaseOperator):
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========
-# SET ENUM
+# SET
 #=========#=========#=========#=========#=========#=========#=========#=========
 
 def set_selected(attribute_value):
@@ -123,9 +123,50 @@ class SetSelectedToUnset(BaseOperator):
         set_selected(ATT.UNSET)
 
 @register_class
+class SymetrizePair(BaseOperator):
+    bl_description = "Set selected to 'Pair'\n"
+    bl_description += "Must have exactely 2 selected vertices\n"
+    bl_description += "- Vertices will have the same unique 'Pair' ID\n"
+    def run(self, context):
+        mode = int(context.scene.mirrorlink_pair_2_verts_mode)
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        # check selection
+        selection = [v for v in bm.verts if v.select]
+        if len(selection) != 2:
+            utils.alert("Need 2 selected vertives, no less, no more.")
+            return
+        # set active if active and selected
+        act = bm.select_history.active
+        if act: sel = [v for v in selection if v != act][0]
+        else:   act, sel = selection
+        # set coordinates
+        if mode != ENUM.NONE:
+            act.co, sel.co = utils.symetrize_coordinates(act.co, sel.co, mode)
+        # get & set pid
+        if utils.is_pair(act[ml_layer]):   pid = act[ml_layer]
+        elif utils.is_pair(sel[ml_layer]): pid = sel[ml_layer]
+        else:                              pid = utils.get_available_pair_id(bm, ml_layer)
+        act[ml_layer] = pid
+        sel[ml_layer] = pid
+        #
+        bmesh.update_edit_mesh(mesh)
+        bpy.ops.object.mode_set(mode=objmode)
+
+
+@register_class
 class SetSelectedToCenter(BaseOperator):
     def run(self, context):
-        set_selected(ATT.CENTER)
+        mode = int(context.scene.mirrorlink_set_center_mode)
+        print(f"Set Selected To 'Center', mode {"MOVE" if mode==ENUM.MOVE else "NONE" if mode==ENUM.NONE else "?"}")
+        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
+        if not ml_layer: return
+        verts = [v for v in bm.verts if v.select]
+        for v in verts:
+            v[ml_layer] = ATT.CENTER
+            if mode == ENUM.MOVE:
+                v.co.x = 0
+        bmesh.update_edit_mesh(mesh)
 
 
 
@@ -153,40 +194,7 @@ class SetCentersAtZero(BaseOperator):
 
 
 @register_class
-class SymetrizePair(BaseOperator):
-    bl_description = "Set selected to 'Pair'\n"
-    bl_description += "Must have exactely 2 selected vertices\n"
-    bl_description += "- Vertices will have the same unique 'Pair' ID\n"
-    bl_description += "- Vertices will be moved to be mirror of each other"
-    def run(self, context):
-        mode = int(context.scene.mirrorlink_pair_2_verts_mode)
-        obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
-        if not ml_layer: return
-        # check selection
-        selection = [v for v in bm.verts if v.select]
-        if len(selection) != 2:
-            utils.alert("Need 2 selected vertives, no less, no more.")
-            return
-        # set active if active and selected
-        act = bm.select_history.active
-        if act: sel = [v for v in selection if v != act][0]
-        else:   act, sel = selection
-        # set coordinates
-        act.co, sel.co = utils.symetrize_coordinates(act.co, sel.co, mode)
-        # get & set pid
-        if utils.is_pair(act[ml_layer]):   pid = act[ml_layer]
-        elif utils.is_pair(sel[ml_layer]): pid = sel[ml_layer]
-        else:                              pid = utils.get_available_pair_id(bm, ml_layer)
-        act[ml_layer] = pid
-        sel[ml_layer] = pid
-        #
-        bmesh.update_edit_mesh(mesh)
-        bpy.ops.object.mode_set(mode=objmode)
-
-
-
-@register_class
-class SymetrizeWholeMesh(BaseOperator):
+class RestoreMesh(BaseOperator):
     bl_description = "Symetrize * the whole mesh *\n"
     bl_description += "Walk the mesh and\n"
     bl_description += "- for each 'Pair' symetrize both vertices\n"
@@ -195,13 +203,18 @@ class SymetrizeWholeMesh(BaseOperator):
         mode = int(context.scene.mirrorlink_pair_mesh)
         obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
         if not obj: return
+        # 'Pair'
         all_pairs = [v for v in bm.verts if utils.is_pair(v[ml_layer])]
         pair_dict = utils.group_verts_by_pid(all_pairs, ml_layer)
         valid_pairs = [pair for pair in pair_dict.values() if len(pair) == 2]
         for v1, v2 in valid_pairs:
             co1, co2 = utils.symetrize_coordinates(v1.co, v2.co, mode)
-            v1.co = co1
-            v2.co = co2
+            if v1.select: v1.co = co1
+            if v2.select: v2.co = co2
+        # 'Center'
+        centers = [v for v in bm.verts if utils.is_center(v[ml_layer])]
+        for v in centers:
+            if v.select: v.co.x = 0
         bmesh.update_edit_mesh(mesh)
         bpy.ops.object.mode_set(mode=objmode)
 

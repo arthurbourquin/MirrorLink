@@ -42,6 +42,8 @@ class ENUM(IntEnum):
     X_POSITIVE = auto()
     AVERAGE = auto()
     ACTIVE = auto()
+    NONE = auto()
+    MOVE = auto()
 
     # scan mode
     REPORT = auto()
