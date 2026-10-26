@@ -5,6 +5,8 @@ from .utils import ENUM
 
 
 
+# PRECISION
+
 @register_scene_property
 def mirrorlink_precision_exponent():
     return bpy.props.IntProperty(
@@ -15,19 +17,27 @@ def mirrorlink_precision_exponent():
         max=3,
     )
 
+
+
+# PAIR 2 VERTS
+
 @register_scene_property
 def mirrorlink_pair_2_verts_mode():
     return bpy.props.EnumProperty(
-        name="Mode",
+        name="Source",
         items=[
-            (str(ENUM.ACTIVE),     "Active",     "Use the active vertex coordinate"),
-            (str(ENUM.X_NEGATIVE), "Negative X", "Use the vertex with the lower x value"),
-            (str(ENUM.X_POSITIVE), "Positive X", "Use the vertex with the greater x value"),
-            (str(ENUM.AVERAGE),    "Average",    "Use the average value"),
-            (str(ENUM.NONE),       "Leave",      "Don't move vertices"),
+            (str(ENUM.ACTIVE),     "Active", "Use the active vertex coordinate"),
+            (str(ENUM.X_NEGATIVE), "-x   →   +x", "Use the vertex with the lower x value"),
+            (str(ENUM.X_POSITIVE), "+x   →   -x", "Use the vertex with the greater x value"),
+            (str(ENUM.AVERAGE),    "Average", "Use the average value"),
+            (str(ENUM.NONE),       "Leave", "Don't move vertices"),
         ],
         default=str(ENUM.ACTIVE),
     )
+
+
+
+# MARK CENTER
 
 @register_scene_property
 def mirrorlink_set_center_mode():
@@ -35,19 +45,35 @@ def mirrorlink_set_center_mode():
         name="Mode",
         items=[
             (str(ENUM.NONE), "Leave", "Don't move vertices"),
-            (str(ENUM.MOVE), "Move",  "Move at x = 0"),
+            (str(ENUM.MOVE), "Move", "Move at x = 0"),
         ],
         default=str(ENUM.MOVE),
     )
 
+
+
+# RESTORE MESH
+
 @register_scene_property
-def mirrorlink_pair_mesh():
+def mirrorlink_restore_source_mode():
     return bpy.props.EnumProperty(
-        name="Mesh pairing mode",
+        name="Source",
         items=[
-            (str(ENUM.X_NEGATIVE), "X negative to positive", "Use the vertex with the lower x value"),
-            (str(ENUM.X_POSITIVE), "X positive to negative", "Use the vertex with the greater x value"),
-            (str(ENUM.AVERAGE),    "Average",                "Use the average value"),
+            (str(ENUM.X_NEGATIVE), "-x   →   +x", "Use the vertex with the lower x value"),
+            (str(ENUM.X_POSITIVE), "+x   →   -x", "Use the vertex with the greater x value"),
+            (str(ENUM.AVERAGE),    "Average", "Use the average value"),
         ],
         default=str(ENUM.X_NEGATIVE),
+    )
+
+
+@register_scene_property
+def mirrorlink_restore_select_mode():
+    return bpy.props.EnumProperty(
+        name="Source",
+        items=[
+            (str(ENUM.ALL), "All", "Modify all vertices"),
+            (str(ENUM.SELECTED), "Selected", "Modify selected vertices"),
+        ],
+        default=str(ENUM.ALL),
     )

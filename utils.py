@@ -37,7 +37,6 @@ def group_verts_by_pid(verts, ml_layer):
 
 from enum import IntEnum, auto
 class ENUM(IntEnum):
-    # modes
     X_NEGATIVE = auto()
     X_POSITIVE = auto()
     AVERAGE = auto()
@@ -45,11 +44,12 @@ class ENUM(IntEnum):
     NONE = auto()
     MOVE = auto()
 
-    # scan mode
     REPORT = auto()
     SET = auto()
     SELECT = auto()
 
+    SELECTED = auto()
+    ALL = auto()
 
 
 #=========#=========#=========#=========#=========#=========#=========#=========

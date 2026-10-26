@@ -200,7 +200,8 @@ class RestoreMesh(BaseOperator):
     bl_description += "- for each 'Pair' symetrize both vertices\n"
     bl_description += "- leave 'Center', 'Unset' and 'Ignore' vertices untouched"
     def run(self, context):
-        mode = int(context.scene.mirrorlink_pair_mesh)
+        source_mode = int(context.scene.mirrorlink_restore_source_mode)
+        select_mode = int(context.scene.mirrorlink_restore_select_mode)
         obj, mesh, bm, ml_layer, objmode = utils.get_bmesh_stuff()
         if not obj: return
         # 'Pair'
@@ -208,13 +209,24 @@ class RestoreMesh(BaseOperator):
         pair_dict = utils.group_verts_by_pid(all_pairs, ml_layer)
         valid_pairs = [pair for pair in pair_dict.values() if len(pair) == 2]
         for v1, v2 in valid_pairs:
-            co1, co2 = utils.symetrize_coordinates(v1.co, v2.co, mode)
-            if v1.select: v1.co = co1
-            if v2.select: v2.co = co2
+            co1, co2 = utils.symetrize_coordinates(v1.co, v2.co, source_mode)
+            if select_mode == ENUM.ALL:
+                v1.co = co1
+                v2.co = co2
+            elif select_mode == ENUM.SELECTED:
+                if v1.select: v1.co = co1
+                if v2.select: v2.co = co2
+            else:
+                print("Unknown mode in Restore Mesh")
         # 'Center'
         centers = [v for v in bm.verts if utils.is_center(v[ml_layer])]
         for v in centers:
-            if v.select: v.co.x = 0
+            if select_mode == ENUM.ALL:
+                v.co.x = 0
+            elif select_mode == ENUM.SELECTED:
+                if v.select: v.co.x = 0
+            else:
+                print("Unknown mode in Restore Mesh")
         bmesh.update_edit_mesh(mesh)
         bpy.ops.object.mode_set(mode=objmode)
 

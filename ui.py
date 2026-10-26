@@ -17,11 +17,13 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
 
         layout.label(text="")
         layout.label(text="MESH SCAN")
-        row = layout.row(align=True)
-        row.scale_y = 2
-        row.operator("mirrorlink.scan_mesh_report", text="Report")
-        row.operator("mirrorlink.scan_mesh_select", text="Select")
-        row.operator("mirrorlink.scan_mesh_set",    text="Set!")
+
+        row2 = layout.row(align=True)
+        col_left_2 = row2.column(align=True)
+        col_left_2.operator("mirrorlink.scan_mesh_report", text="Report")
+        col_left_2.operator("mirrorlink.scan_mesh_select", text="Select")
+        col_right_1 = row2.column(align=True)
+        col_right_1.operator("mirrorlink.scan_mesh_set", text="Set")
 
 
         layout.label(text="")
@@ -36,43 +38,45 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
         row.operator("mirrorlink.select_center_vertices",      text="at center")
 
 
-
-        layout.label(text="")
+        layout.separator()
         layout.label(text="MODIFY")
-        # Mark 'Ignore' / 'Unset'
-        row = layout.row(align=True)
-        box_lft = row.box().column(align=True)
-        box_rgt = row.box().column(align=True)
 
-        btn = box_lft.column(align=True)
-        btn.scale_y = 2
-        btn.operator("mirrorlink.set_selected_to_ignore", text="Mark 'Ignore'")
+        scene = context.scene
 
-        btn = box_rgt.column(align=True)
-        btn.scale_y = 2
-        btn.operator("mirrorlink.set_selected_to_unset", text="Mark 'Unset'")
+        grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
 
-        # Mark 'Pair' / 'Center'
-        row = layout.row(align=True)
-        box_lft = row.box().column(align=True)
-        box_rgt = row.box().column(align=True)
+        # --- Ligne 1 : boutons seuls ---
+        col = grid.column(align=True)
+        col.scale_y = 2
+        col.operator("mirrorlink.set_selected_to_ignore", text="Mark 'Ignore'")
 
-        box_lft.prop(context.scene, "mirrorlink_pair_2_verts_mode", text="")
-        btn = box_lft.column(align=True)
-        btn.scale_y = 2
-        btn.operator("mirrorlink.symetrize_pair", text="'Pair' it")
+        col = grid.column(align=True)
+        col.scale_y = 2
+        col.operator("mirrorlink.set_selected_to_unset", text="Mark 'Unset'")
 
-        box_rgt.prop(context.scene, "mirrorlink_set_center_mode", text="")
-        btn = box_rgt.column(align=True)
-        btn.scale_y = 2
-        btn.operator("mirrorlink.set_selected_to_center", text="Mark 'Center'")
+        # --- Ligne 2 : colonnes de 2 (menu + bouton) ---
+        col = grid.column(align=True)
+        col.prop(scene, "mirrorlink_pair_2_verts_mode", text="")
+        sub = col.column(align=True)
+        sub.scale_y = 2
+        sub.operator("mirrorlink.symetrize_pair", text="'Pair' it")
+
+        col = grid.column(align=True)
+        col.prop(scene, "mirrorlink_set_center_mode", text="")
+        sub = col.column(align=True)
+        sub.scale_y = 2
+        sub.operator("mirrorlink.set_selected_to_center", text="Mark 'Center'")
 
 
 
         layout.label(text="")
         col = layout.column(align=True)
-        col.prop(context.scene, "mirrorlink_pair_mesh", text="")
-        col.operator("mirrorlink.restore_mesh", text="Restore Mesh")
+        row = col.row(align=True)
+        row.prop(context.scene, "mirrorlink_restore_source_mode", text="")
+        row.prop(context.scene, "mirrorlink_restore_select_mode", text="")
+        row = col.row(align=True)
+        row.operator("mirrorlink.restore_mesh", text="Restore Mesh")
+        row.scale_y = 2
 
 
 
