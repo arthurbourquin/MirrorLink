@@ -23,7 +23,8 @@ class MIRRORLINK_PT_main(bpy.types.Panel):
         col_left_2.operator("mirrorlink.scan_mesh_report", text="Report")
         col_left_2.operator("mirrorlink.scan_mesh_select", text="Select")
         col_right_1 = row2.column(align=True)
-        col_right_1.operator("mirrorlink.scan_mesh_set", text="Set")
+        col_right_1.operator("mirrorlink.scan_mesh_set", text="Set!")
+        col_right_1.scale_y = 2
 
 
         layout.label(text="")
