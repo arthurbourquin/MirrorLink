@@ -1,14 +1,32 @@
+# python
+from math import floor, log10
+from enum import IntEnum
+
+# Blender
 import bpy
 import bmesh
+from bmesh.types import BMVert
 
-from enum import IntEnum
+# Custom
 from mathutils import Vector
 from mathutils.kdtree import KDTree
 
 
+
+
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# ENUM AND PAIR ID
+# MARK: Attribute / Enum
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
 
 ATTNAME = 'pair-id'
 
@@ -52,9 +70,21 @@ class ENUM(IntEnum):
     ALL = auto()
 
 
+
+
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# PRINT ALERT
+# MARK: print / alert
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
 
 def alert(message, title="Tohm Mirror Link", icon='INFO'):
     if isinstance(message, list):
@@ -71,9 +101,22 @@ def alert(message, title="Tohm Mirror Link", icon='INFO'):
 
 
 
+
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# MISCELLANEOUS
+# MARK: miscelanous
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
+
+def mag(x): return floor(log10(abs(x))) if x != 0 else 0
 
 def mirror(co):
     return Vector((-co.x, co.y, co.z))
@@ -97,9 +140,22 @@ def symetrize_coordinates(co1, co2, mode): # if active: co1 is active
         co2 = mirror(co1)
     return co1, co2
 
+
+
+
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# BMESH
+# MARK: BMesh
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
 
 def get_bmesh_stuff():
     # get active object
@@ -125,9 +181,20 @@ def get_bmesh_stuff():
 
 
 
+
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# KDTREE RELATED
+# MARK: KDTree
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
 
 def nearest_mirror(bm, tree, v):
     mirrored = mirror(v.co)
@@ -148,9 +215,19 @@ def build_tree(verts):
 
 
 
+
+
+
+
+
+
 #=========#=========#=========#=========#=========#=========#=========#=========
-# ...
+# MARK: Mirror Link
 #=========#=========#=========#=========#=========#=========#=========#=========
+
+
+
+
 
 def get_overlapping(bm, verts, tree, threshold=1e-4):
     overlapping = set()
@@ -164,6 +241,8 @@ def get_overlapping(bm, verts, tree, threshold=1e-4):
                 overlapping.add(other)
     return overlapping
 
+
+
 def get_center_candidates(verts, threshold=1e-4):
     centers = set()
     for v in verts:
@@ -171,43 +250,48 @@ def get_center_candidates(verts, threshold=1e-4):
             centers.add(v)
     return centers
 
-def get_pairs_candidates(bm, verts, tree, threshold=1e-4):
+
+
+def get_pairs_candidates(bm, verts, tree, threshold=1e-4) -> set[tuple[BMVert, BMVert]]:
     verts = set(verts)
     candidates = {v: [] for v in verts}
     for v in verts:
         if abs(v.co.x) < threshold:
             continue
-        mirrored = mirror(v.co)
-        res = tree.find_range(mirrored, threshold)
+        res = tree.find_range(mirror(v.co), threshold)
         for _co, idx, _dst in res:
             other = bm.verts[idx]
             if other in verts and other != v:
                 candidates[v].append(other)
     pairs = set()
-    for v in verts:
-        if len(candidates[v]) != 1:
+    for v1 in verts:
+        if len(candidates[v1]) != 1:
             continue
-        other = candidates[v][0]
-        if candidates[other] == [v]:
-            left, right = sorted([v, other], key=lambda p: p.co.x)
+        v2 = candidates[v1][0]
+        if len(candidates[v2]) == 1 and candidates[v2][0] == v:
+            left, right = sorted([v1, v2], key=lambda p: p.co.x)
             pairs.add((left, right))
-    return pairs # flat for now, keep code for further use
+    return pairs
+
+
 
 def get_bad_pairs(pairs_, ml_layer, threshold=1e-4):
     pairs = [v for v in pairs_ if is_pair(v[ml_layer])]
     pair_dict = group_verts_by_pid(pairs, ml_layer)
-    broken_pairs = []
-    mislocated_pairs = []
+    broken_pairs = set()
+    mislocated_pairs = set()
     for verts in pair_dict.values():
         if len(verts) != 2:
-            broken_pairs += verts
+            broken_pairs.add(verts)
         else:
             v1, v2 = verts
             v = v1.co - mirror(v2.co)
             dst2 = v.x*v.x + v.y*v.y + v.z*v.z
             if dst2 > threshold* threshold:
-                mislocated_pairs += verts
+                mislocated_pairs.add(verts)
     return broken_pairs, mislocated_pairs
+
+
 
 def pack_pid(bm, ml_layer, unset_broken_pairs=False):
     verts_by_pid: dict[int, list] = group_verts_by_pid(bm.verts, ml_layer)
